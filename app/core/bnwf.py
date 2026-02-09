@@ -52,6 +52,7 @@ class BNWFOptions:
     run_eigenvalue: bool = False      # OpenSees only
     n_modes: int = 3                  # OpenSees only
     pile_type: str = "driven"
+    _skip_post: bool = False          # Internal: skip K_head/buckling to avoid recursion
 
 
 @dataclass
@@ -391,11 +392,13 @@ def _solve_bnwf_python(
     M_max = float(moment_ft_lbs[M_max_idx])
     depth_M_max = float(depth_ft[M_max_idx])
 
-    # Stiffness matrix extraction
-    K_head = _compute_head_stiffness(profile, section, embedment, options)
-
-    # Buckling estimate via P-delta
-    P_crit = _estimate_buckling(profile, section, embedment, options)
+    # Stiffness matrix extraction and buckling (skip during inner unit-load solves)
+    if options._skip_post:
+        K_head = np.zeros((3, 3))
+        P_crit = None
+    else:
+        K_head = _compute_head_stiffness(profile, section, embedment, options)
+        P_crit = _estimate_buckling(profile, section, embedment, options)
 
     # Collect display curves at representative depths
     display_depths = [1, 3, 5, 8, 10]
@@ -522,6 +525,7 @@ def _compute_head_stiffness(
         tol=1e-4,
         solver="python",
         pile_type=options.pile_type,
+        _skip_post=True,  # Prevent recursive K_head/buckling computation
     )
 
     flexibility = np.zeros((3, 3))
