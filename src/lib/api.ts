@@ -42,6 +42,11 @@ export interface ProjectState {
   group_n_rows: number;
   group_n_cols: number;
   group_spacing: number;
+  // BNWF FEA
+  bnwf_include_p_delta: boolean;
+  bnwf_analysis_type: string;
+  bnwf_pushover_steps: number;
+  bnwf_pushover_max_mult: number;
 }
 
 export const DEFAULT_PROJECT: ProjectState = {
@@ -72,6 +77,10 @@ export const DEFAULT_PROJECT: ProjectState = {
   group_n_rows: 1,
   group_n_cols: 1,
   group_spacing: 36,
+  bnwf_include_p_delta: true,
+  bnwf_analysis_type: "static",
+  bnwf_pushover_steps: 20,
+  bnwf_pushover_max_mult: 3.0,
 };
 
 export const PILE_SECTIONS = [
@@ -132,6 +141,26 @@ export async function runGroupAnalysis(project: ProjectState, Q_single: number) 
     n_cols: project.group_n_cols,
     spacing: project.group_spacing,
     Q_single_compression: Q_single,
+  });
+}
+
+export async function runBNWFAnalysis(project: ProjectState) {
+  return post("/api/bnwf", {
+    soil_layers: project.soil_layers,
+    water_table_depth: project.water_table_depth,
+    pile_section: project.pile_section,
+    embedment_depth: project.embedment_depth,
+    bending_axis: project.bending_axis,
+    head_condition: project.head_condition,
+    pile_type: project.pile_type,
+    cyclic: project.cyclic,
+    V_axial: project.dead,
+    H_lateral: project.wind_lateral,
+    M_ground: project.wind_lateral * project.lever_arm,
+    include_p_delta: project.bnwf_include_p_delta,
+    analysis_type: project.bnwf_analysis_type,
+    pushover_steps: project.bnwf_pushover_steps,
+    pushover_max_mult: project.bnwf_pushover_max_mult,
   });
 }
 

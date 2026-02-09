@@ -64,6 +64,26 @@ class SteelSection:
         """Yield moment, weak axis (kip-in)."""
         return self.fy * self.Sy
 
+    def fiber_patches(self) -> list[dict]:
+        """Return fiber patch geometry for W-shape cross-section.
+
+        Returns list of dicts describing rectangular patches (2 flanges + 1 web)
+        for use with OpenSeesPy ops.patch('rect', ...).
+        Each dict has: y_min, y_max, z_min, z_max, n_y, n_z (fiber counts).
+        """
+        d = self.depth
+        bf = self.width
+        tf = self.tf
+        tw = self.tw
+        return [
+            {"y_min": -d / 2, "y_max": -d / 2 + tf,
+             "z_min": -bf / 2, "z_max": bf / 2, "n_y": 10, "n_z": 1},
+            {"y_min": d / 2 - tf, "y_max": d / 2,
+             "z_min": -bf / 2, "z_max": bf / 2, "n_y": 10, "n_z": 1},
+            {"y_min": -d / 2 + tf, "y_max": d / 2 - tf,
+             "z_min": -tw / 2, "z_max": tw / 2, "n_y": 1, "n_z": 20},
+        ]
+
 
 # Solar pile section database (AISC values)
 SECTIONS = {

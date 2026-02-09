@@ -5,7 +5,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Solar Pile Design Tool",
-  description: "Axial capacity, lateral p-y analysis, group effects, ASCE 7 load combinations",
+  description: "Axial capacity, lateral p-y analysis, group effects, FEM (BNWF), ASCE 7 load combinations",
 };
 
 const NAV_ITEMS = [
@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { href: "/axial-capacity", label: "Axial Capacity" },
   { href: "/lateral-analysis", label: "Lateral Analysis" },
   { href: "/group-analysis", label: "Group Analysis" },
+  { href: "/fem-analysis", label: "FEM Analysis" },
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -57,7 +57,7 @@ def init_session_state():
 init_session_state()
 
 st.title("Solar Pile Foundation Design Tool")
-st.caption("Axial capacity \u00b7 Lateral analysis \u00b7 p-y curves \u00b7 Group effects \u00b7 ASCE 7 load combinations")
+st.caption("Axial capacity \u00b7 Lateral analysis \u00b7 p-y curves \u00b7 Group effects \u00b7 FEM (BNWF) \u00b7 ASCE 7 load combinations")
 
 st.markdown("---")
 st.markdown(

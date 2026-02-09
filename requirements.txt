@@ -7,3 +7,6 @@ streamlit>=1.30.0
 plotly>=5.15.0
 pandas>=2.0.0
 matplotlib>=3.7.0
+
+# Optional: OpenSeesPy for advanced BNWF analysis (not available on Vercel)
+# openseespy>=3.5.0
