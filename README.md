@@ -38,6 +38,8 @@ Both frontends share the same Python calculation engine (`core/`).
 - **Axial Capacity Analysis** — Alpha (API RP 2A), Beta (effective stress), Meyerhof, and Nordlund methods; helical pile torque correlation; LRFD/ASD factored results
 - **Lateral Load Analysis** — Nonlinear p-y curve generation (Matlock soft clay, Reese sand, API RP 2A) with finite difference method solver; deflection, moment, and shear profiles
 - **Pile Group Analysis** — Converse-Labarre efficiency, AASHTO/FHWA p-multipliers, block failure check, plan-view layout diagram
+- **BNWF Finite Element Analysis** — Beam-on-nonlinear-Winkler-foundation model with combined axial+lateral loading, pushover curves, and buckling analysis
+- **PDF Report Export** — Professional SPile+-style PDF reports with section properties diagram, soil profile tables, depth profile plots, load combinations, and analysis summaries (fpdf2 + kaleido)
 
 ---
 
@@ -52,11 +54,13 @@ Solar_Pile_Design/
 │   ├── axial.py           ← Axial capacity methods
 │   ├── lateral.py         ← p-y curves + FDM solver
 │   ├── group.py           ← Group efficiency + block failure
-│   └── loads.py           ← ASCE 7-22 load combinations
+│   ├── bnwf.py            ← BNWF finite element analysis
+│   ├── loads.py           ← ASCE 7-22 load combinations
+│   └── pdf_export.py      ← SPile+-style PDF report generation
 │
 ├── streamlit_app/         ← Streamlit frontend
 │   ├── streamlit_app.py   ← Entry point
-│   ├── pages/             ← 8 Streamlit pages (01–08)
+│   ├── pages/             ← 9 Streamlit pages (01–09)
 │   ├── core/              ← Local copy of calculation engine
 │   └── projects/          ← Saved project JSON files
 │
@@ -159,6 +163,7 @@ The app opens at **http://localhost:3000**. Analysis pages call the Python API r
 | Lateral Analysis | `streamlit_app/pages/06_Lateral_Analysis.py` | p-y curves, deflection profiles |
 | Group Analysis | `streamlit_app/pages/07_Group_Analysis.py` | Group efficiency, block failure |
 | FEM Analysis | `streamlit_app/pages/08_FEM_Analysis.py` | BNWF combined axial+lateral FEM |
+| Export Report | `streamlit_app/pages/09_Export_Report.py` | SPile+-style PDF report export |
 
 ### Next.js Routes
 
@@ -215,6 +220,21 @@ The `core/` directory contains all engineering logic. Both frontends import from
 - `generate_lrfd_combinations()` — 7 LRFD load cases (ASCE 7-22)
 - `generate_asd_combinations()` — 8 ASD load cases
 - Helper functions: `wind_velocity_pressure()`, `seismic_base_shear_coeff()`, `snow_load()`
+
+### `core/bnwf.py`
+
+- `solve_bnwf()` — Beam-on-nonlinear-Winkler-foundation FEM solver
+- Combined axial + lateral loading with p-y spring elements
+- Pushover curve generation and Euler buckling analysis
+- Returns `BNWFResult` with depth profiles, spring data, and critical load
+
+### `core/pdf_export.py`
+
+- `generate_report()` — Main entry point producing SPile+-style PDF bytes
+- `ReportData` — Dataclass aggregating all project inputs and analysis results
+- `PileReportPDF` — Custom fpdf2 subclass with professional styling (dark headers, card borders, alternating-row tables, W-beam cross-section diagram)
+- 13 section renderers: cover page, basis for design, design summary, section properties, soil profile, lateral summary, vertical load check, pile head loads, load combinations, depth profile plots + data tables, pile analysis summary, group summary, warnings
+- Graceful degradation — sections skip when analysis data is unavailable
 
 ---
 

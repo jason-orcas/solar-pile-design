@@ -174,7 +174,7 @@ Solar_Pile_Design/
 ├── streamlit_app/     ← Streamlit frontend (Python + Plotly)
 │   ├── streamlit_app.py
 │   ├── core/          ← Local copy of calculation engine for Streamlit imports
-│   └── pages/         ← 8 Streamlit pages (01–08)
+│   └── pages/         ← 9 Streamlit pages (01–09)
 ├── src/               ← Next.js frontend (React + TypeScript + Recharts)
 │   ├── app/           ← App Router pages (7 routes)
 │   ├── components/    ← ProjectProvider (React context)
