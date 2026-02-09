@@ -1,6 +1,9 @@
-streamlit>=1.30.0
+# Shared calculation engine (core/)
 numpy>=1.24.0
 scipy>=1.10.0
-matplotlib>=3.7.0
+
+# Streamlit frontend (app/)
+streamlit>=1.30.0
 plotly>=5.15.0
 pandas>=2.0.0
+matplotlib>=3.7.0
