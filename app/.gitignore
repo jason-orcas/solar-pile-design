@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.streamlit/
+projects/*.json
+*.egg-info/
+dist/
+build/
+.env
