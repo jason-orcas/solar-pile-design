@@ -5,7 +5,7 @@ from pathlib import Path
 
 import streamlit as st
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from core.sections import SECTIONS, get_section, list_sections
 
 st.header("Pile Properties")

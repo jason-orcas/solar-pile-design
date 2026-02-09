@@ -6,7 +6,7 @@ from pathlib import Path
 import streamlit as st
 import pandas as pd
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from core.loads import (
     LoadInput, generate_lrfd_combinations, generate_asd_combinations,
     wind_velocity_pressure, seismic_base_shear_coeff, snow_load,

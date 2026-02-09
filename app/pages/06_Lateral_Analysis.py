@@ -9,7 +9,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from core.soil import SoilLayer, SoilProfile, SoilType
 from core.sections import get_section
 from core.lateral import solve_lateral, broms_cohesionless, broms_cohesive, generate_py_curve

@@ -8,7 +8,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 # Add parent to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from core.soil import SoilLayer, SoilProfile, SoilType, correct_N_overburden
 
 st.header("Soil Profile")

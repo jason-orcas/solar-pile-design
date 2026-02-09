@@ -7,7 +7,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from core.soil import SoilLayer, SoilProfile, SoilType
 from core.sections import get_section
 from core.group import group_analysis, converse_labarre, p_multipliers_table
