@@ -10,7 +10,21 @@ import math
 from dataclasses import dataclass, field
 
 import numpy as np
-from scipy.optimize import brentq
+def _bisect(f, a, b, tol=1e-8, maxiter=200):
+    """Simple bisection root finder replacing scipy.optimize.brentq."""
+    fa, fb = f(a), f(b)
+    if fa * fb > 0:
+        raise ValueError("f(a) and f(b) must have opposite signs")
+    for _ in range(maxiter):
+        mid = 0.5 * (a + b)
+        fm = f(mid)
+        if abs(fm) < tol or (b - a) < tol:
+            return mid
+        if fa * fm < 0:
+            b = mid
+        else:
+            a, fa = mid, fm
+    return 0.5 * (a + b)
 
 from .soil import SoilProfile, SoilLayer, SoilType, GAMMA_WATER
 
@@ -252,7 +266,7 @@ def broms_cohesionless(
         return H * (e + 0.67 * f) - My_ft_lbs
 
     try:
-        H_long = brentq(moment_eq, 0.1, 500000, maxiter=200)
+        H_long = _bisect(moment_eq, 0.1, 500000, maxiter=200)
     except ValueError:
         H_long = float("inf")
 

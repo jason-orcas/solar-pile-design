@@ -14,7 +14,6 @@ import math
 from dataclasses import dataclass, field
 
 import numpy as np
-from scipy import linalg
 
 from .soil import SoilProfile, SoilLayer, SoilType
 from .sections import SteelSection, CustomPileSection
@@ -292,8 +291,8 @@ def _solve_bnwf_python(
 
         # Solve
         try:
-            d_new = linalg.solve(K, F, assume_a='sym')
-        except linalg.LinAlgError:
+            d_new = np.linalg.solve(K, F)
+        except np.linalg.LinAlgError:
             notes.append("Matrix solve failed — system is singular or ill-conditioned")
             break
 
