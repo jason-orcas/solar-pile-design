@@ -39,7 +39,7 @@ with st.expander("Add New Layer", expanded=len(st.session_state.soil_layers) == 
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         new_top = st.number_input("Top Depth (ft)", min_value=0.0, value=0.0, step=0.5, key="new_top")
-        new_thick = st.number_input("Thickness (ft)", min_value=0.5, value=5.0, step=0.5, key="new_thick")
+        new_bot = st.number_input("Bottom Depth (ft)", min_value=0.5, value=5.0, step=0.5, key="new_bot")
     with c2:
         new_type = st.selectbox("Soil Type", [t.value for t in SoilType], key="new_type")
         new_desc = st.text_input("Description", value="", key="new_desc", placeholder="e.g., Brown silty sand")
@@ -51,19 +51,22 @@ with st.expander("Add New Layer", expanded=len(st.session_state.soil_layers) == 
         new_cu = st.number_input("c_u (psf, 0=auto)", min_value=0.0, value=0.0, step=100.0, key="new_cu")
 
     if st.button("Add Layer", type="primary"):
-        layer_data = {
-            "top_depth": new_top,
-            "thickness": new_thick,
-            "soil_type": new_type,
-            "description": new_desc,
-            "N_spt": new_N,
-            "gamma": new_gamma if new_gamma > 0 else None,
-            "phi": new_phi if new_phi > 0 else None,
-            "c_u": new_cu if new_cu > 0 else None,
-        }
-        st.session_state.soil_layers.append(layer_data)
-        st.success(f"Added layer: {new_desc or new_type} at {new_top}-{new_top + new_thick} ft")
-        st.rerun()
+        if new_bot <= new_top:
+            st.error("Bottom depth must be greater than top depth.")
+        else:
+            layer_data = {
+                "top_depth": new_top,
+                "thickness": new_bot - new_top,
+                "soil_type": new_type,
+                "description": new_desc,
+                "N_spt": new_N,
+                "gamma": new_gamma if new_gamma > 0 else None,
+                "phi": new_phi if new_phi > 0 else None,
+                "c_u": new_cu if new_cu > 0 else None,
+            }
+            st.session_state.soil_layers.append(layer_data)
+            st.success(f"Added layer: {new_desc or new_type} at {new_top}-{new_bot} ft")
+            st.rerun()
 
 # Display existing layers
 if st.session_state.soil_layers:
