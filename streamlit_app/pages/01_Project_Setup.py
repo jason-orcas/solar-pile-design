@@ -1,13 +1,8 @@
-"""Page 1: Project setup and save/load."""
+"""Page 1: Project setup and download/upload."""
 
 import json
-import os
-from pathlib import Path
 
 import streamlit as st
-
-PROJECTS_DIR = Path(__file__).parent.parent / "projects"
-PROJECTS_DIR.mkdir(exist_ok=True)
 
 st.header("Project Setup")
 
@@ -27,7 +22,7 @@ with col2:
 
 st.markdown("---")
 
-# --- Save / Load ---
+# --- Download / Upload ---
 SAVEABLE_KEYS = [
     "project_name", "project_location", "project_notes",
     "soil_layers", "water_table_depth",
@@ -40,11 +35,11 @@ SAVEABLE_KEYS = [
 ]
 
 
-def save_project():
+def build_project_json() -> str:
+    """Serialize current session state to a JSON string."""
     data = {}
     for key in SAVEABLE_KEYS:
         val = st.session_state.get(key)
-        # Convert soil layers (list of dicts) for JSON
         if key == "soil_layers" and val:
             serialized = []
             for layer in val:
@@ -55,42 +50,33 @@ def save_project():
             data[key] = serialized
         else:
             data[key] = val
-
-    filename = st.session_state.project_name.replace(" ", "_") + ".json"
-    filepath = PROJECTS_DIR / filename
-    with open(filepath, "w") as f:
-        json.dump(data, f, indent=2, default=str)
-    return filepath
-
-
-def load_project(filepath):
-    with open(filepath) as f:
-        data = json.load(f)
-    for key in SAVEABLE_KEYS:
-        if key in data:
-            st.session_state[key] = data[key]
+    return json.dumps(data, indent=2, default=str)
 
 
 col_save, col_load = st.columns(2)
 
 with col_save:
-    st.subheader("Save Project")
-    if st.button("Save Current Project", type="primary"):
-        path = save_project()
-        st.success(f"Saved to {path.name}")
+    st.subheader("Download Project")
+    filename = st.session_state.get("project_name", "New_Project").replace(" ", "_") + ".json"
+    st.download_button(
+        label="Download Project File",
+        data=build_project_json(),
+        file_name=filename,
+        mime="application/json",
+        type="primary",
+        use_container_width=True,
+    )
 
 with col_load:
-    st.subheader("Load Project")
-    project_files = sorted(PROJECTS_DIR.glob("*.json"))
-    if project_files:
-        selected = st.selectbox(
-            "Select project file",
-            project_files,
-            format_func=lambda p: p.stem.replace("_", " "),
-        )
-        if st.button("Load Selected Project"):
-            load_project(selected)
-            st.success(f"Loaded {selected.stem}")
+    st.subheader("Upload Project")
+    uploaded = st.file_uploader("Upload a project JSON file", type=["json"])
+    if uploaded is not None:
+        try:
+            data = json.loads(uploaded.read().decode("utf-8"))
+            for key in SAVEABLE_KEYS:
+                if key in data:
+                    st.session_state[key] = data[key]
+            st.success(f"Loaded project: {data.get('project_name', uploaded.name)}")
             st.rerun()
-    else:
-        st.info("No saved projects found.")
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            st.error("Invalid project file. Please upload a valid JSON file.")
