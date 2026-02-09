@@ -171,10 +171,10 @@ This project has **two parallel frontends** sharing a common Python calculation 
 ```
 Solar_Pile_Design/
 ├── core/              ← Shared Python calculation engine (authoritative source)
-├── app/               ← Streamlit frontend (Python + Plotly)
+├── streamlit_app/     ← Streamlit frontend (Python + Plotly)
 │   ├── streamlit_app.py
 │   ├── core/          ← Local copy of calculation engine for Streamlit imports
-│   └── pages/         ← 7 Streamlit pages (01–07)
+│   └── pages/         ← 8 Streamlit pages (01–08)
 ├── src/               ← Next.js frontend (React + TypeScript + Recharts)
 │   ├── app/           ← App Router pages (7 routes)
 │   ├── components/    ← ProjectProvider (React context)
@@ -187,18 +187,18 @@ Solar_Pile_Design/
 
 Both frontends must stay in sync. When making changes:
 
-1. **Calculation logic** — Edit `core/` (root) first, then copy changes to `app/core/`
-2. **New features** — Implement in both `app/pages/` (Streamlit) and `src/app/` (Next.js)
+1. **Calculation logic** — Edit `core/` (root) first, then copy changes to `streamlit_app/core/`
+2. **New features** — Implement in both `streamlit_app/pages/` (Streamlit) and `src/app/` (Next.js)
 3. **API changes** — Update both `api/*.py` (Vercel) and the corresponding Streamlit page
 
 ### Running Locally
 
-- **Streamlit:** `streamlit run app/streamlit_app.py --server.headless true` → http://localhost:8501
+- **Streamlit:** `streamlit run streamlit_app/streamlit_app.py --server.headless true` → http://localhost:8501
 - **Next.js:** `npm run dev` → http://localhost:3000 (Python API routes require Vercel CLI or separate server)
 
 ### Deploying
 
-- **Streamlit Cloud:** Connect repo, set main file to `app/streamlit_app.py`
+- **Streamlit Cloud:** Connect repo, set main file to `streamlit_app/streamlit_app.py`
 - **Vercel:** Import repo, auto-detects Next.js + Python functions
 
 ---

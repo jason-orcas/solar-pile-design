@@ -54,9 +54,9 @@ Solar_Pile_Design/
 │   ├── group.py           ← Group efficiency + block failure
 │   └── loads.py           ← ASCE 7-22 load combinations
 │
-├── app/                   ← Streamlit frontend
+├── streamlit_app/         ← Streamlit frontend
 │   ├── streamlit_app.py   ← Entry point
-│   ├── pages/             ← 7 Streamlit pages (01–07)
+│   ├── pages/             ← 8 Streamlit pages (01–08)
 │   ├── core/              ← Local copy of calculation engine
 │   └── projects/          ← Saved project JSON files
 │
@@ -107,7 +107,7 @@ cd solar-pile-design
 pip install -r requirements.txt
 
 # Launch the Streamlit app
-streamlit run app/streamlit_app.py --server.headless true
+streamlit run streamlit_app/streamlit_app.py --server.headless true
 ```
 
 The app opens at **http://localhost:8501**. Use the sidebar to navigate through each analysis step.
@@ -151,13 +151,14 @@ The app opens at **http://localhost:3000**. Analysis pages call the Python API r
 
 | Page | File | Description |
 |------|------|-------------|
-| Project Setup | `app/pages/01_Project_Setup.py` | Create/load/save projects |
-| Soil Profile | `app/pages/02_Soil_Profile.py` | Define soil layers, water table |
-| Pile Properties | `app/pages/03_Pile_Properties.py` | Select steel section, embedment |
-| Loading | `app/pages/04_Loading.py` | Enter loads, generate combinations |
-| Axial Capacity | `app/pages/05_Axial_Capacity.py` | Run axial analysis with charts |
-| Lateral Analysis | `app/pages/06_Lateral_Analysis.py` | p-y curves, deflection profiles |
-| Group Analysis | `app/pages/07_Group_Analysis.py` | Group efficiency, block failure |
+| Project Setup | `streamlit_app/pages/01_Project_Setup.py` | Create/load/save projects |
+| Soil Profile | `streamlit_app/pages/02_Soil_Profile.py` | Define soil layers, water table |
+| Pile Properties | `streamlit_app/pages/03_Pile_Properties.py` | Select steel section, embedment |
+| Loading | `streamlit_app/pages/04_Loading.py` | Enter loads, generate combinations |
+| Axial Capacity | `streamlit_app/pages/05_Axial_Capacity.py` | Run axial analysis with charts |
+| Lateral Analysis | `streamlit_app/pages/06_Lateral_Analysis.py` | p-y curves, deflection profiles |
+| Group Analysis | `streamlit_app/pages/07_Group_Analysis.py` | Group efficiency, block failure |
+| FEM Analysis | `streamlit_app/pages/08_FEM_Analysis.py` | BNWF combined axial+lateral FEM |
 
 ### Next.js Routes
 
@@ -278,7 +279,7 @@ Generates ASCE 7-22 load combinations.
 1. Push to GitHub
 2. Go to [share.streamlit.io](https://share.streamlit.io)
 3. Connect the repository
-4. Set **Main file path** to `app/streamlit_app.py`
+4. Set **Main file path** to `streamlit_app/streamlit_app.py`
 5. Deploy
 
 ### Vercel
