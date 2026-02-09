@@ -1060,4 +1060,4 @@ def generate_report(data: ReportData) -> bytes:
     _render_group_summary(pdf, data)
     _render_warnings(pdf, data)
 
-    return pdf.output()
+    return bytes(pdf.output())
