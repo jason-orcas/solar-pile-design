@@ -232,7 +232,7 @@ The `core/` directory contains all engineering logic. Both frontends import from
 
 - `generate_report()` — Main entry point producing SPile+-style PDF bytes
 - `ReportData` — Dataclass aggregating all project inputs and analysis results
-- `PileReportPDF` — Custom fpdf2 subclass with professional styling (dark headers, card borders, alternating-row tables, W-beam cross-section diagram)
+- `PileReportPDF` — Custom fpdf2 subclass with professional styling (dark headers, card borders, centered tables with multi-line word-wrap, W-beam cross-section diagram)
 - 13 section renderers: cover page, basis for design, design summary, section properties, soil profile, lateral summary, vertical load check, pile head loads, load combinations, depth profile plots + data tables, pile analysis summary, group summary, warnings
 - Graceful degradation — sections skip when analysis data is unavailable
 

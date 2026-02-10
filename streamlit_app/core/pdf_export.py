@@ -205,42 +205,87 @@ class PileReportPDF(FPDF):
             self.set_text_color(*self.TEXT_PRIMARY)
         self.ln(5.5)
 
+    def _calc_cell_lines(self, text: str, col_width: float) -> int:
+        """Estimate number of lines needed for *text* in a column of *col_width* mm."""
+        if not text:
+            return 1
+        text_w = self.get_string_width(text) + 2  # small padding
+        if text_w <= col_width:
+            return 1
+        return max(1, math.ceil(text_w / (col_width - 1)))
+
     def styled_table(self, headers: list, rows: list,
                      col_widths: list | None = None, align: str = "C"):
-        """Professional table with gray header and alternating rows."""
+        """Professional table with gray header, alternating rows, centered on page.
+
+        Supports multi-line word-wrap within cells so long text is not clipped.
+        """
         if not headers:
             return
         if col_widths is None:
             usable = self.w - 2 * self.l_margin - 10
             col_widths = [usable / len(headers)] * len(headers)
 
-        x_start = self.l_margin + 5
+        total_width = sum(col_widths)
+        x_start = (self.w - total_width) / 2
+        line_h = 3.5  # per-line height inside cells
 
-        # Header row
-        self._check_page_space(14)
+        # --- Header row ---
         self.set_font("Helvetica", "B", 7.5)
+        header_texts = [self._safe_text(str(h)) for h in headers]
+        max_lines = 1
+        for i, text in enumerate(header_texts):
+            n = self._calc_cell_lines(text, col_widths[i])
+            max_lines = max(max_lines, n)
+        header_h = max(7, max_lines * line_h + 2)
+
+        self._check_page_space(header_h + 2)
         self.set_fill_color(*self.TABLE_HEADER_BG)
         self.set_text_color(*self.HEADER_FG)
         self.set_draw_color(*self.CARD_BORDER)
-        self.set_x(x_start)
-        for i, h in enumerate(headers):
-            self.cell(col_widths[i], 7, self._safe_text(str(h)), border=1, align="C", fill=True)
-        self.ln()
 
-        # Data rows
+        y_top = self.get_y()
+        col_x = x_start
+        for i, text in enumerate(header_texts):
+            self.rect(col_x, y_top, col_widths[i], header_h, style="FD")
+            n = self._calc_cell_lines(text, col_widths[i])
+            text_block_h = n * line_h
+            y_text = y_top + (header_h - text_block_h) / 2
+            self.set_xy(col_x, y_text)
+            self.multi_cell(col_widths[i], line_h, text, align="C", border=0)
+            col_x += col_widths[i]
+        self.set_y(y_top + header_h)
+
+        # --- Data rows ---
         self.set_font("Helvetica", "", 7.5)
         self.set_text_color(*self.TEXT_PRIMARY)
         for row_idx, row in enumerate(rows):
-            self._check_page_space(7)
             if row_idx % 2 == 1:
                 self.set_fill_color(*self.TABLE_ALT_ROW)
             else:
                 self.set_fill_color(255, 255, 255)
-            self.set_x(x_start)
-            for i, cell_val in enumerate(row):
+
+            cell_texts = [self._safe_text(str(v)) for v in row]
+            max_lines = 1
+            for i, text in enumerate(cell_texts):
                 cw = col_widths[i] if i < len(col_widths) else col_widths[-1]
-                self.cell(cw, 6, self._safe_text(str(cell_val)), border=1, align=align, fill=True)
-            self.ln()
+                n = self._calc_cell_lines(text, cw)
+                max_lines = max(max_lines, n)
+            row_h = max(6, max_lines * line_h + 1)
+
+            self._check_page_space(row_h + 1)
+            y_top = self.get_y()
+            col_x = x_start
+            for i, text in enumerate(cell_texts):
+                cw = col_widths[i] if i < len(col_widths) else col_widths[-1]
+                self.rect(col_x, y_top, cw, row_h, style="FD")
+                n = self._calc_cell_lines(text, cw)
+                text_block_h = n * line_h
+                y_text = y_top + (row_h - text_block_h) / 2
+                self.set_xy(col_x, y_text)
+                self.multi_cell(cw, line_h, text, align=align, border=0)
+                col_x += cw
+            self.set_y(y_top + row_h)
 
     def _check_page_space(self, needed_mm: float):
         """Add a new page if insufficient space remains."""
@@ -563,7 +608,7 @@ def _render_lateral_summary(pdf: PileReportPDF, data: ReportData):
             f"{abs(y_top):.2f}", f"{abs(y_ground):.2f}",
             f"{M_max_kip_in:.2f}", f"{Mp_kip_in:.2f}", f"{stress_ratio:.2f}",
         ]],
-        col_widths=[18, 17, 20, 16, 20, 20, 25, 25, 18],
+        col_widths=[20, 18, 24, 18, 23, 23, 28, 28, 18],
     )
     pdf.card_end()
 
@@ -683,7 +728,7 @@ def _render_load_combinations(pdf: PileReportPDF, data: ReportData):
 
     headers = ["Load Case", "V_comp (lbs)", "V_tens (lbs)",
                "H_lat (lbs)", "M_ground (ft-lbs)"]
-    cw = [50, 28, 28, 28, 32]
+    cw = [75, 28, 28, 28, 28]
 
     pdf.card_start()
     if data.design_method in ("LRFD", "Both"):
