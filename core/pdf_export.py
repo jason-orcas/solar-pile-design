@@ -179,12 +179,7 @@ class PileReportPDF(FPDF):
         self._card_x = self.l_margin
 
     def card_end(self):
-        """Close the card section with a border."""
-        y_end = self.get_y()
-        w = self.w - 2 * self.l_margin
-        h = max(y_end - self._card_y + 2, 4)
-        self.set_draw_color(*self.CARD_BORDER)
-        self.rect(self._card_x, self._card_y, w, h, style="D")
+        """Close the card section (spacing only, no border)."""
         self.ln(4)
 
     def kv_row(self, label: str, value: str, unit: str = "", note: str = ""):
