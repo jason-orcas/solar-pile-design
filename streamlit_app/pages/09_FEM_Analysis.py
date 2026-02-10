@@ -1,4 +1,4 @@
-"""Page 8: BNWF Finite Element Analysis — combined axial+lateral, pushover, stiffness matrix."""
+"""Page 9: BNWF Finite Element Analysis — combined axial+lateral, pushover, stiffness matrix."""
 
 import sys
 from pathlib import Path

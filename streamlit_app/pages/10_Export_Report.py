@@ -1,4 +1,4 @@
-"""Page 9: Export PDF Report - professional report generation."""
+"""Page 10: Export PDF Report - professional report generation."""
 
 import sys
 from pathlib import Path
@@ -24,11 +24,13 @@ has_axial = "axial_result" in st.session_state
 has_lateral = "lateral_result" in st.session_state
 has_bnwf = "bnwf_result" in st.session_state
 has_group = "group_result" in st.session_state
+has_optimization = "optimization_result" in st.session_state
 
 st.subheader("Analysis Status")
 status_items = [
     ("Soil Profile", has_soil),
     ("Pile Section", has_section),
+    ("Pile Optimization", has_optimization),
     ("Axial Capacity", has_axial),
     ("Lateral Analysis", has_lateral),
     ("FEM Analysis (BNWF)", has_bnwf),
@@ -156,6 +158,7 @@ def build_report_data() -> ReportData:
         corrosion_rate=st.session_state.get("corrosion_rate", 0.0),
         corrosion_t_loss=st.session_state.get("corrosion_t_loss", 0.0),
         nominal_section=nominal_section,
+        optimization_result=st.session_state.get("optimization_result"),
     )
 
 

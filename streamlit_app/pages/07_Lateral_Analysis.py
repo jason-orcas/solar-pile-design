@@ -1,4 +1,4 @@
-"""Page 6: Lateral load analysis — p-y curves, deflection, moment profiles."""
+"""Page 7: Lateral load analysis — p-y curves, deflection, moment profiles."""
 
 import sys
 from pathlib import Path

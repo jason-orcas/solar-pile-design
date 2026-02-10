@@ -88,6 +88,9 @@ class ReportData:
     corrosion_t_loss: float = 0.0          # in per side
     nominal_section: SteelSection | None = None
 
+    # Optimization
+    optimization_result: Any | None = None
+
 
 # ============================================================================
 # Custom PDF Class
@@ -324,6 +327,7 @@ def _render_cover_page(pdf: PileReportPDF, data: ReportData):
         ("3", "Section Properties"),
         ("3A", "Corrosion Allowance"),
         ("4", "Soil Profile and Properties"),
+        ("4A", "Pile Optimization Summary"),
         ("5", "Lateral Analysis Summary"),
         ("6", "Vertical Load Check"),
         ("7", "Pile Head Loads"),
@@ -618,6 +622,68 @@ def _render_soil_profile(pdf: PileReportPDF, data: ReportData):
     ]
     pdf.styled_table(["Parameter", "Unit"], unit_rows, col_widths=[60, 40])
     pdf.card_end()
+
+
+def _render_optimization_summary(pdf: PileReportPDF, data: ReportData):
+    """Pile Optimization Summary showing sweep results and optimal design."""
+    if data.optimization_result is None:
+        return
+    opt = data.optimization_result
+
+    pdf.add_page()
+    pdf.section_header("Pile Optimization Summary")
+
+    # Sweep parameters
+    pdf.card_start()
+    pdf.sub_header("Optimization Parameters")
+    pdf.kv_row("Section Family", opt.section_family)
+    e_min, e_max, e_step = opt.embedment_range
+    pdf.kv_row("Embedment Range", f"{e_min:.1f} to {e_max:.1f}", "ft",
+               f"(step {e_step:.1f} ft)")
+    pdf.kv_row("Total Combinations", f"{opt.total_combinations}")
+    pdf.kv_row("Passing Designs", f"{opt.passing_count}")
+    pdf.kv_row("Sweep Time", f"{opt.sweep_time_seconds:.1f}", "seconds")
+    pdf.card_end()
+
+    # Optimal design
+    if opt.optimal:
+        pdf.ln(3)
+        pdf.card_start()
+        pdf.sub_header("Optimal Design (Lightest Passing)")
+        pdf.kv_row("Section", opt.optimal.section_name)
+        pdf.kv_row("Embedment", f"{opt.optimal.embedment_ft:.1f}", "ft")
+        pdf.kv_row("Total Pile Weight", f"{opt.optimal.total_weight_lbs:.0f}", "lbs")
+        pdf.kv_row("Axial Comp DCR", f"{opt.optimal.axial_comp_dcr:.2f}")
+        pdf.kv_row("Axial Tens DCR", f"{opt.optimal.axial_tens_dcr:.2f}")
+        pdf.kv_row("Lateral Struct DCR", f"{opt.optimal.lateral_struct_dcr:.2f}")
+        pdf.kv_row("Ground Deflection", f"{opt.optimal.deflection_in:.3f}", "in")
+        pdf.card_end()
+
+    # Table of all passing designs (capped at 20)
+    passing = [c for c in opt.candidates if c.passes_all]
+    if passing:
+        passing_sorted = sorted(passing, key=lambda c: c.total_weight_lbs)
+        display = passing_sorted[:20]
+
+        pdf.ln(3)
+        pdf.card_start()
+        pdf.sub_header("All Passing Designs (sorted by weight)")
+        headers = ["Section", "Embed (ft)", "Weight (lbs)",
+                   "Comp DCR", "Tens DCR", "Lat DCR", "Defl (in)"]
+        rows = [
+            [c.section_name, f"{c.embedment_ft:.1f}",
+             f"{c.total_weight_lbs:.0f}",
+             f"{c.axial_comp_dcr:.2f}", f"{c.axial_tens_dcr:.2f}",
+             f"{c.lateral_struct_dcr:.2f}", f"{c.deflection_in:.3f}"]
+            for c in display
+        ]
+        pdf.styled_table(headers, rows, col_widths=[25, 23, 23, 22, 22, 22, 23])
+        if len(passing_sorted) > 20:
+            pdf.set_font("Helvetica", "I", 8)
+            pdf.set_x(pdf.l_margin + 10)
+            pdf.cell(0, 5, f"(Showing top 20 of {len(passing_sorted)} passing designs)")
+            pdf.ln(5)
+        pdf.card_end()
 
 
 def _render_lateral_summary(pdf: PileReportPDF, data: ReportData):
@@ -1117,6 +1183,7 @@ def _section_available(section_num: str, data: ReportData) -> bool:
         "3": data.section is not None,
         "3A": data.corrosion_enabled and data.nominal_section is not None,
         "4": bool(data.soil_layers_raw),
+        "4A": data.optimization_result is not None,
         "5": data.lateral_result is not None or data.bnwf_result is not None,
         "6": data.axial_result is not None,
         "7": data.load_input is not None,
@@ -1150,6 +1217,7 @@ def generate_report(data: ReportData) -> bytes:
     _render_section_properties(pdf, data)
     _render_corrosion_summary(pdf, data)
     _render_soil_profile(pdf, data)
+    _render_optimization_summary(pdf, data)
     _render_lateral_summary(pdf, data)
     _render_vertical_load_check(pdf, data)
     _render_pile_head_loads(pdf, data)

@@ -151,6 +151,32 @@ def list_sections() -> list[str]:
     return sorted(SECTIONS.keys())
 
 
+def list_section_families() -> list[str]:
+    """Return unique section family prefixes plus aggregate options.
+
+    Families derived from section names by splitting on 'x':
+    e.g., "W6x7" -> "W6", "W8x10" -> "W8", "C4x5.4" -> "C4".
+    """
+    families = sorted(set(name.split("x")[0] for name in SECTIONS))
+    families.extend(["All W-shapes", "All"])
+    return families
+
+
+def get_sections_by_family(family: str) -> list[SteelSection]:
+    """Return sections matching a family prefix, sorted by weight (lightest first).
+
+    Args:
+        family: "W6", "W8", "C4", "All W-shapes", or "All".
+    """
+    if family == "All":
+        sections = list(SECTIONS.values())
+    elif family == "All W-shapes":
+        sections = [s for s in SECTIONS.values() if s.type == "W"]
+    else:
+        sections = [s for s in SECTIONS.values() if s.name.startswith(family + "x")]
+    return sorted(sections, key=lambda s: s.weight)
+
+
 @dataclass
 class CustomPileSection:
     """For non-standard pile shapes (pipe, HSS, etc.)."""

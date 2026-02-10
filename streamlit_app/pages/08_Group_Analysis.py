@@ -1,4 +1,4 @@
-"""Page 7: Pile group analysis — efficiency, p-multipliers, block failure."""
+"""Page 8: Pile group analysis — efficiency, p-multipliers, block failure."""
 
 import sys
 from pathlib import Path
