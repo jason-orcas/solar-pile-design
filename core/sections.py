@@ -1,5 +1,6 @@
 """Steel section database for solar pile foundations."""
 
+import math
 from dataclasses import dataclass
 
 
@@ -206,4 +207,135 @@ def make_pipe_section(
         My=My,
         depth=OD,
         width=OD,
+    )
+
+
+# ============================================================================
+# Corrosion Analysis (FHWA/AASHTO guidance)
+# ============================================================================
+
+# Corrosion rates in mils/year per environment (FHWA/AASHTO)
+CORROSION_RATES: dict[str, dict[str, float]] = {
+    "Atmospheric":          {"low": 1.0, "high": 2.0, "typical": 1.5},
+    "Splash zone":          {"low": 3.0, "high": 5.0, "typical": 4.0},
+    "Buried (disturbed)":   {"low": 0.5, "high": 2.0, "typical": 1.25},
+    "Buried (undisturbed)": {"low": 0.5, "high": 1.0, "typical": 0.75},
+    "Fill / aggressive":    {"low": 2.0, "high": 4.0, "typical": 3.0},
+}
+
+# Coating reduction factors applied to the base corrosion rate
+COATING_REDUCTION: dict[str, float] = {
+    "None":              1.0,
+    "Galvanized (G90)":  0.50,
+    "Galvanized (G185)": 0.35,
+}
+
+
+@dataclass
+class CorrosionParams:
+    """Computed corrosion parameters."""
+    design_life: float        # years
+    environment: str
+    coating: str
+    corrosion_rate: float     # mils/year (after coating reduction)
+    t_loss_per_side: float    # in (thickness loss per exposed face)
+
+
+def compute_corrosion_params(
+    design_life: float, environment: str, coating: str
+) -> CorrosionParams:
+    """Compute corrosion thickness loss from FHWA/AASHTO tables.
+
+    Args:
+        design_life: Project design life in years.
+        environment: Key into CORROSION_RATES.
+        coating: Key into COATING_REDUCTION.
+
+    Returns:
+        CorrosionParams with computed rate and thickness loss.
+    """
+    base_rate = CORROSION_RATES[environment]["typical"]  # mils/year
+    effective_rate = base_rate * COATING_REDUCTION[coating]
+    t_loss = effective_rate * design_life / 1000.0  # mils -> inches
+    return CorrosionParams(
+        design_life=design_life,
+        environment=environment,
+        coating=coating,
+        corrosion_rate=effective_rate,
+        t_loss_per_side=t_loss,
+    )
+
+
+def corroded_section(
+    nominal: SteelSection, t_loss_per_side: float
+) -> SteelSection:
+    """Create a new SteelSection with reduced dimensions due to corrosion.
+
+    Corrosion is applied to BOTH exposed faces of flanges and web:
+        tf_corroded = tf - 2 * t_loss_per_side
+        tw_corroded = tw - 2 * t_loss_per_side
+
+    Section properties (A, Ix, Iy, Sx, Sy, Zx, Zy) are recomputed from
+    first-principles W-shape formulas with the reduced thicknesses.
+
+    Args:
+        nominal: Original AISC SteelSection.
+        t_loss_per_side: Thickness loss per exposed surface (in).
+
+    Returns:
+        New SteelSection with corroded properties.
+
+    Raises:
+        ValueError: If corroded tf or tw would be <= 0.
+    """
+    if t_loss_per_side <= 0:
+        return nominal
+
+    tf_c = nominal.tf - 2 * t_loss_per_side
+    tw_c = nominal.tw - 2 * t_loss_per_side
+
+    if tf_c <= 0 or tw_c <= 0:
+        raise ValueError(
+            f"Corrosion loss {t_loss_per_side:.4f} in/side exceeds half of "
+            f"tf={nominal.tf:.3f} in or tw={nominal.tw:.3f} in. "
+            f"Section is fully consumed."
+        )
+
+    d = nominal.depth
+    bf = nominal.width
+    h_w = d - 2 * tf_c  # clear web height
+
+    # Area
+    area = 2 * bf * tf_c + h_w * tw_c
+
+    # Weight (scale proportionally)
+    weight = nominal.weight * (area / nominal.area)
+
+    # Strong axis moment of inertia (Ix)
+    Ix = (2 * (bf * tf_c**3 / 12 + bf * tf_c * ((d - tf_c) / 2)**2)
+          + tw_c * h_w**3 / 12)
+
+    # Weak axis moment of inertia (Iy)
+    Iy = 2 * tf_c * bf**3 / 12 + h_w * tw_c**3 / 12
+
+    # Elastic section moduli
+    Sx = Ix / (d / 2)
+    Sy = Iy / (bf / 2)
+
+    # Plastic section moduli
+    Zx = 2 * bf * tf_c * (d - tf_c) / 2 + tw_c * h_w**2 / 4
+    Zy = 2 * tf_c * bf**2 / 4 + h_w * tw_c**2 / 4
+
+    return SteelSection(
+        name=f"{nominal.name} (corroded)",
+        type=nominal.type,
+        depth=d,
+        width=bf,
+        area=area,
+        weight=weight,
+        Ix=Ix, Iy=Iy,
+        Sx=Sx, Sy=Sy,
+        Zx=Zx, Zy=Zy,
+        tf=tf_c, tw=tw_c,
+        fy=nominal.fy,
     )

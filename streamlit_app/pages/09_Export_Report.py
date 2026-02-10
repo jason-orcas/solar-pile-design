@@ -83,7 +83,8 @@ st.markdown("---")
 # ============================================================================
 def build_report_data() -> ReportData:
     """Assemble ReportData from Streamlit session state."""
-    section = get_section(st.session_state.pile_section)
+    section = st.session_state.get("section") or get_section(st.session_state.pile_section)
+    nominal_section = st.session_state.get("nominal_section") or section
 
     # Build SoilProfile
     layers_obj = []
@@ -148,6 +149,13 @@ def build_report_data() -> ReportData:
         group_n_rows=st.session_state.get("group_n_rows", 1),
         group_n_cols=st.session_state.get("group_n_cols", 1),
         group_spacing=st.session_state.get("group_spacing", 36.0),
+        corrosion_enabled=st.session_state.get("corrosion_enabled", False),
+        corrosion_design_life=st.session_state.get("corrosion_design_life", 0.0),
+        corrosion_environment=st.session_state.get("corrosion_environment", ""),
+        corrosion_coating=st.session_state.get("corrosion_coating", ""),
+        corrosion_rate=st.session_state.get("corrosion_rate", 0.0),
+        corrosion_t_loss=st.session_state.get("corrosion_t_loss", 0.0),
+        nominal_section=nominal_section,
     )
 
 

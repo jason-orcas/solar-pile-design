@@ -79,6 +79,15 @@ class ReportData:
     group_n_cols: int = 1
     group_spacing: float = 36.0            # in
 
+    # Corrosion
+    corrosion_enabled: bool = False
+    corrosion_design_life: float = 0.0     # years
+    corrosion_environment: str = ""
+    corrosion_coating: str = ""
+    corrosion_rate: float = 0.0            # mils/year
+    corrosion_t_loss: float = 0.0          # in per side
+    nominal_section: SteelSection | None = None
+
 
 # ============================================================================
 # Custom PDF Class
@@ -313,6 +322,7 @@ def _render_cover_page(pdf: PileReportPDF, data: ReportData):
         ("1", "Basis for Design"),
         ("2", "Design Summary"),
         ("3", "Section Properties"),
+        ("3A", "Corrosion Allowance"),
         ("4", "Soil Profile and Properties"),
         ("5", "Lateral Analysis Summary"),
         ("6", "Vertical Load Check"),
@@ -512,6 +522,53 @@ def _draw_w_section(pdf: PileReportPDF, section: SteelSection):
     pdf.cell(24, 4, f"{section.width:.2f} in", align="C")
 
     pdf.set_y(cy + d / 2 + 12)
+
+
+def _render_corrosion_summary(pdf: PileReportPDF, data: ReportData):
+    """Corrosion Allowance section with parameters and property comparison."""
+    if not data.corrosion_enabled or data.nominal_section is None:
+        return
+    pdf.add_page()
+    pdf.section_header("Corrosion Allowance")
+
+    # Parameters
+    pdf.card_start()
+    pdf.sub_header("Corrosion Parameters (FHWA/AASHTO)")
+    pdf.kv_row("Design Life", f"{data.corrosion_design_life:.0f}", "years")
+    pdf.kv_row("Environment", data.corrosion_environment)
+    pdf.kv_row("Coating", data.corrosion_coating)
+    pdf.kv_row("Corrosion Rate", f"{data.corrosion_rate:.2f}", "mils/year")
+    pdf.kv_row("Thickness Loss (per side)", f"{data.corrosion_t_loss:.4f}", "in")
+    pdf.kv_row("Total Loss (both sides)", f"{2 * data.corrosion_t_loss:.4f}", "in")
+    pdf.card_end()
+
+    # Comparison table
+    nom = data.nominal_section
+    cor = data.section
+    if cor is None:
+        return
+
+    def pct(a, b):
+        return f"{100 * (a - b) / a:.1f}%" if a > 0 else "-"
+
+    pdf.card_start()
+    pdf.sub_header("Nominal vs Corroded Section Properties")
+    headers = ["Property", "Nominal", "Corroded", "Reduction"]
+    rows = [
+        ["Flange tf (in)", f"{nom.tf:.3f}", f"{cor.tf:.3f}", pct(nom.tf, cor.tf)],
+        ["Web tw (in)", f"{nom.tw:.3f}", f"{cor.tw:.3f}", pct(nom.tw, cor.tw)],
+        ["Area (in2)", f"{nom.area:.2f}", f"{cor.area:.2f}", pct(nom.area, cor.area)],
+        ["Ix (in4)", f"{nom.Ix:.2f}", f"{cor.Ix:.2f}", pct(nom.Ix, cor.Ix)],
+        ["Iy (in4)", f"{nom.Iy:.2f}", f"{cor.Iy:.2f}", pct(nom.Iy, cor.Iy)],
+        ["Sx (in3)", f"{nom.Sx:.2f}", f"{cor.Sx:.2f}", pct(nom.Sx, cor.Sx)],
+        ["Sy (in3)", f"{nom.Sy:.3f}", f"{cor.Sy:.3f}", pct(nom.Sy, cor.Sy)],
+        ["Mp strong (kip-in)", f"{nom.Mp_strong:.1f}", f"{cor.Mp_strong:.1f}",
+         pct(nom.Mp_strong, cor.Mp_strong)],
+        ["Mp weak (kip-in)", f"{nom.Mp_weak:.1f}", f"{cor.Mp_weak:.1f}",
+         pct(nom.Mp_weak, cor.Mp_weak)],
+    ]
+    pdf.styled_table(headers, rows, col_widths=[45, 30, 30, 25])
+    pdf.card_end()
 
 
 def _render_soil_profile(pdf: PileReportPDF, data: ReportData):
@@ -1058,6 +1115,7 @@ def _section_available(section_num: str, data: ReportData) -> bool:
         "1": True,
         "2": data.section is not None,
         "3": data.section is not None,
+        "3A": data.corrosion_enabled and data.nominal_section is not None,
         "4": bool(data.soil_layers_raw),
         "5": data.lateral_result is not None or data.bnwf_result is not None,
         "6": data.axial_result is not None,
@@ -1090,6 +1148,7 @@ def generate_report(data: ReportData) -> bytes:
     _render_basis_for_design(pdf, data)
     _render_design_summary(pdf, data)
     _render_section_properties(pdf, data)
+    _render_corrosion_summary(pdf, data)
     _render_soil_profile(pdf, data)
     _render_lateral_summary(pdf, data)
     _render_vertical_load_check(pdf, data)

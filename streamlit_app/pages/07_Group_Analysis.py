@@ -19,7 +19,7 @@ if not st.session_state.get("soil_layers"):
     st.warning("Define soil layers on the Soil Profile page first.")
     st.stop()
 
-section = get_section(st.session_state.pile_section)
+section = st.session_state.get("section") or get_section(st.session_state.pile_section)
 embedment = st.session_state.pile_embedment
 pile_width = section.depth  # Use depth as governing dimension
 

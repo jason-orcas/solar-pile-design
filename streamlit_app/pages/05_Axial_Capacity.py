@@ -35,7 +35,7 @@ for ld in st.session_state.soil_layers:
 profile = SoilProfile(layers=layers_obj, water_table_depth=st.session_state.water_table_depth)
 
 # --- Pile properties ---
-section = get_section(st.session_state.pile_section)
+section = st.session_state.get("section") or get_section(st.session_state.pile_section)
 embedment = st.session_state.pile_embedment
 
 # --- Analysis settings ---
