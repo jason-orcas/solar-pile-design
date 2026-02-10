@@ -12,6 +12,18 @@ out/
 .streamlit/
 app/projects/*.json
 
+# Test / temp outputs
+Test_Outputs/
+*.test.pdf
+test_*.pdf
+nul
+
+# Claude Code
+.claude/
+
+# Example / reference documents (large binaries)
+Example_Documents/
+
 # Environment
 .env
 .env.local
