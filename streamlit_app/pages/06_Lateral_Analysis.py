@@ -49,12 +49,12 @@ col1, col2, col3 = st.columns(3)
 with col1:
     H_applied = st.number_input(
         "Lateral load H (lbs)", min_value=0.0,
-        value=st.session_state.get("wind_lateral", 1500.0), step=100.0,
+        value=st.session_state.get("wind_lateral", 1500.0), step=100.0, format="%.0f",
     )
 with col2:
     M_applied = st.number_input(
         "Moment at ground (ft-lbs)", min_value=0.0,
-        value=H_applied * st.session_state.get("lever_arm", 4.0), step=500.0,
+        value=H_applied * st.session_state.get("lever_arm", 4.0), step=500.0, format="%.0f",
     )
 with col3:
     st.session_state.cyclic_loading = st.checkbox(

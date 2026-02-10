@@ -49,7 +49,7 @@ with col2:
         "Embedment Depth (ft)",
         min_value=1.0, max_value=50.0,
         value=st.session_state.get("pile_embedment", 10.0),
-        step=0.5,
+        step=0.5, format="%.1f",
     )
 
     st.session_state.pile_type = st.selectbox(

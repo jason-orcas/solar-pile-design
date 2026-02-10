@@ -63,18 +63,18 @@ with col2:
         "Above-grade pile length (ft)",
         min_value=0.0,
         value=st.session_state.get("lever_arm", 4.0),
-        step=0.5,
+        step=0.5, format="%.1f",
         help="Pile length above the ground surface (reveal height)."
     )
 
 st.markdown("**Design Limits**")
 lim1, lim2, lim3 = st.columns(3)
 with lim1:
-    top_defl_limit = st.number_input("Top Deflection Limit (in)", value=4.0, step=0.5)
+    top_defl_limit = st.number_input("Top Deflection Limit (in)", value=4.0, step=0.5, format="%.1f")
 with lim2:
-    grade_defl_limit = st.number_input("Grade Deflection Limit (in)", value=1.0, step=0.25)
+    grade_defl_limit = st.number_input("Grade Deflection Limit (in)", value=1.0, step=0.25, format="%.2f")
 with lim3:
-    bottom_defl_limit = st.number_input("Bottom Deflection Limit (in)", value=0.1, step=0.05)
+    bottom_defl_limit = st.number_input("Bottom Deflection Limit (in)", value=0.1, step=0.05, format="%.2f")
 
 st.markdown("---")
 

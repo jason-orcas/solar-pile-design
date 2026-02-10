@@ -66,19 +66,19 @@ c1, c2, c3 = st.columns(3)
 with c1:
     V_axial = st.number_input(
         "Axial load V (lbs, + compression)",
-        value=st.session_state.get("axial_compression", 5000.0), step=500.0,
+        value=st.session_state.get("axial_compression", 5000.0), step=500.0, format="%.0f",
     )
 with c2:
     H_lateral = st.number_input(
         "Lateral load H (lbs)",
         min_value=0.0,
-        value=st.session_state.get("wind_lateral", 1500.0), step=100.0,
+        value=st.session_state.get("wind_lateral", 1500.0), step=100.0, format="%.0f",
     )
 with c3:
     M_ground = st.number_input(
         "Moment at ground M (ft-lbs)",
         min_value=0.0,
-        value=H_lateral * st.session_state.get("lever_arm", 4.0), step=500.0,
+        value=H_lateral * st.session_state.get("lever_arm", 4.0), step=500.0, format="%.0f",
     )
 
 # --- Options ---
@@ -102,7 +102,7 @@ if analysis_type.startswith("pushover"):
     with pc1:
         pushover_steps = st.number_input("Number of load steps", min_value=5, max_value=100, value=20)
     with pc2:
-        pushover_max_mult = st.number_input("Max load multiplier", min_value=1.0, max_value=10.0, value=3.0, step=0.5)
+        pushover_max_mult = st.number_input("Max load multiplier", min_value=1.0, max_value=10.0, value=3.0, step=0.5, format="%.1f")
 
 # OpenSees-only options
 use_fiber = False

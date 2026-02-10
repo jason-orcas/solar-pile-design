@@ -50,11 +50,11 @@ with col1:
     )
 with col2:
     st.session_state.FS_compression = st.number_input(
-        "FS Compression", value=st.session_state.get("FS_compression", 2.5), step=0.5,
+        "FS Compression", value=st.session_state.get("FS_compression", 2.5), step=0.5, format="%.1f",
     )
 with col3:
     st.session_state.FS_tension = st.number_input(
-        "FS Tension", value=st.session_state.get("FS_tension", 3.0), step=0.5,
+        "FS Tension", value=st.session_state.get("FS_tension", 3.0), step=0.5, format="%.1f",
     )
 
 # --- Run analysis ---

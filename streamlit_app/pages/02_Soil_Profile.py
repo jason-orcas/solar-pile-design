@@ -20,7 +20,7 @@ with col_wt1:
 with col_wt2:
     if has_wt:
         st.session_state.water_table_depth = st.number_input(
-            "Water table depth (ft)", min_value=0.0, value=st.session_state.water_table_depth or 10.0, step=0.5,
+            "Water table depth (ft)", min_value=0.0, value=st.session_state.water_table_depth or 10.0, step=0.5, format="%.1f",
         )
     else:
         st.session_state.water_table_depth = None
@@ -38,17 +38,17 @@ if "soil_layers" not in st.session_state or not st.session_state.soil_layers:
 with st.expander("Add New Layer", expanded=len(st.session_state.soil_layers) == 0):
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        new_top = st.number_input("Top Depth (ft)", min_value=0.0, value=0.0, step=0.5, key="new_top")
-        new_bot = st.number_input("Bottom Depth (ft)", min_value=0.5, value=5.0, step=0.5, key="new_bot")
+        new_top = st.number_input("Top Depth (ft)", min_value=0.0, value=0.0, step=0.5, format="%.1f", key="new_top")
+        new_bot = st.number_input("Bottom Depth (ft)", min_value=0.5, value=5.0, step=0.5, format="%.1f", key="new_bot")
     with c2:
         new_type = st.selectbox("Soil Type", [t.value for t in SoilType], key="new_type")
         new_desc = st.text_input("Description", value="", key="new_desc", placeholder="e.g., Brown silty sand")
     with c3:
         new_N = st.number_input("SPT N-value (raw)", min_value=0, value=15, step=1, key="new_N")
-        new_gamma = st.number_input("Unit weight (pcf, 0=auto)", min_value=0.0, value=0.0, step=5.0, key="new_gamma")
+        new_gamma = st.number_input("Unit weight (pcf, 0=auto)", min_value=0.0, value=0.0, step=5.0, format="%.0f", key="new_gamma")
     with c4:
-        new_phi = st.number_input("Friction angle (deg, 0=auto)", min_value=0.0, value=0.0, step=1.0, key="new_phi")
-        new_cu = st.number_input("c_u (psf, 0=auto)", min_value=0.0, value=0.0, step=100.0, key="new_cu")
+        new_phi = st.number_input("Friction angle (deg, 0=auto)", min_value=0.0, value=0.0, step=1.0, format="%.0f", key="new_phi")
+        new_cu = st.number_input("c_u (psf, 0=auto)", min_value=0.0, value=0.0, step=100.0, format="%.0f", key="new_cu")
 
     if st.button("Add Layer", type="primary"):
         if new_bot <= new_top:

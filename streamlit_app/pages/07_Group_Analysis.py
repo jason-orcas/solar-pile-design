@@ -40,7 +40,7 @@ with col2:
 with col3:
     st.session_state.group_spacing = st.number_input(
         "Center-to-center spacing (in)", min_value=6.0,
-        value=st.session_state.get("group_spacing", 36.0), step=3.0,
+        value=st.session_state.get("group_spacing", 36.0), step=3.0, format="%.0f",
     )
 
 n_rows = st.session_state.group_n_rows
