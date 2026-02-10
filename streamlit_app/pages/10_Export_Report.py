@@ -169,7 +169,11 @@ if st.button("Generate PDF Report", type="primary", use_container_width=True):
     with st.spinner("Generating PDF report..."):
         try:
             report_data = build_report_data()
-            pdf_bytes = generate_report(report_data)
+            _logo = Path(__file__).parent.parent / "assets" / "bowman_logo.png"
+            pdf_bytes = generate_report(
+                report_data,
+                logo_path=str(_logo) if _logo.exists() else None,
+            )
         except Exception as e:
             st.error(f"Error generating report: {e}")
             st.stop()

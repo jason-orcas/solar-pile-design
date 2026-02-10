@@ -1,9 +1,9 @@
-"""SPile+-style PDF report generation for solar pile foundation design.
+"""SPORK PDF report generation for solar pile foundation design.
 
-Produces a multi-section PDF report mirroring SPile+ output format:
-project details, basis for design, design summary, section properties,
-soil profile, analysis summary, vertical load check, load combinations,
-depth profile plots and tables, pile analysis summary, and warnings.
+Produces a multi-section PDF report: project details, basis for design,
+design summary, section properties, soil profile, analysis summary,
+vertical load check, load combinations, depth profile plots and tables,
+pile analysis summary, and warnings.
 
 Dependencies: fpdf2, kaleido (for Plotly chart export)
 """
@@ -108,7 +108,7 @@ class PileReportPDF(FPDF):
     TEXT_PRIMARY = (40, 40, 45)
     TEXT_SECONDARY = (100, 100, 110)
 
-    APP_TITLE = "Solar Pile Design"
+    APP_TITLE = "Solar Pile Optimization & Report Kit"
 
     # Unicode → ASCII replacements for Helvetica compatibility
     _UNICODE_MAP = {
@@ -134,17 +134,23 @@ class PileReportPDF(FPDF):
             text = text.replace(uc, repl)
         return text
 
-    def __init__(self):
+    def __init__(self, logo_path: str | None = None):
         super().__init__(orientation="P", unit="mm", format="letter")
         self.set_auto_page_break(auto=True, margin=20)
         self.set_font("Helvetica", "", 10)
+        self._logo_path = logo_path
 
     def header(self):
-        """Page header with app title top-right."""
-        self.set_font("Helvetica", "B", 10)
+        """Page header with logo top-left and app title top-right."""
+        if self._logo_path:
+            try:
+                self.image(self._logo_path, x=self.l_margin, y=5, h=8)
+            except Exception:
+                pass
+        self.set_font("Helvetica", "B", 9)
         self.set_text_color(*self.HEADER_BG)
-        self.set_xy(self.w - 65, 8)
-        self.cell(55, 6, self.APP_TITLE, align="R")
+        self.set_xy(self.w - 100, 8)
+        self.cell(90, 6, self.APP_TITLE, align="R")
         self.ln(12)
 
     def footer(self):
@@ -307,6 +313,19 @@ class PileReportPDF(FPDF):
 def _render_cover_page(pdf: PileReportPDF, data: ReportData):
     """Project Details and Table of Contents."""
     pdf.add_page()
+
+    # Cover logo and title
+    if pdf._logo_path:
+        try:
+            pdf.image(pdf._logo_path, x=pdf.l_margin, y=pdf.get_y(), h=12)
+            pdf.ln(16)
+        except Exception:
+            pass
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.set_text_color(*pdf.HEADER_BG)
+    pdf.cell(0, 10, pdf.APP_TITLE, align="C")
+    pdf.ln(12)
+    pdf.set_text_color(*pdf.TEXT_PRIMARY)
 
     pdf.section_header("Project Details")
     pdf.card_start()
@@ -1199,16 +1218,17 @@ def _section_available(section_num: str, data: ReportData) -> bool:
 # Main Entry Point
 # ============================================================================
 
-def generate_report(data: ReportData) -> bytes:
-    """Generate complete SPile+-style PDF report.
+def generate_report(data: ReportData, logo_path: str | None = None) -> bytes:
+    """Generate SPORK PDF report.
 
     Args:
         data: ReportData with all project info and analysis results.
+        logo_path: Optional path to a logo image for headers/cover.
 
     Returns:
         PDF file contents as bytes.
     """
-    pdf = PileReportPDF()
+    pdf = PileReportPDF(logo_path=logo_path)
     pdf.alias_nb_pages()
 
     _render_cover_page(pdf, data)

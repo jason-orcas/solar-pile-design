@@ -1,9 +1,11 @@
-"""Solar Pile Design Tool — Main Streamlit Application."""
+"""SPORK — Solar Pile Optimization & Report Kit."""
+
+from pathlib import Path
 
 import streamlit as st
 
 st.set_page_config(
-    page_title="Solar Pile Design Tool",
+    page_title="SPORK - Solar Pile Optimization & Report Kit",
     page_icon="\u2693",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -56,7 +58,11 @@ def init_session_state():
 
 init_session_state()
 
-st.title("Solar Pile Foundation Design Tool")
+_LOGO = Path(__file__).parent / "assets" / "bowman_logo.png"
+if _LOGO.exists():
+    st.image(str(_LOGO), width=280)
+
+st.title("Solar Pile Optimization & Report Kit")
 st.caption("Axial capacity \u00b7 Lateral analysis \u00b7 p-y curves \u00b7 Group effects \u00b7 FEM (BNWF) \u00b7 ASCE 7 load combinations")
 
 st.markdown("---")
