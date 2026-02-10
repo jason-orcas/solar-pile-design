@@ -146,7 +146,7 @@ if "lateral_result" in st.session_state:
     for i in range(1, 5):
         fig.update_yaxes(title_text="Depth (ft)" if i == 1 else "", row=1, col=i)
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     # --- p-y Curves ---
     st.subheader("p-y Curves at Selected Depths")
@@ -169,7 +169,7 @@ if "lateral_result" in st.session_state:
             yaxis_title="Soil Resistance p (lb/in)",
             height=450,
         )
-        st.plotly_chart(fig_py, use_container_width=True)
+        st.plotly_chart(fig_py, width="stretch")
 
     # Notes
     if result.notes:

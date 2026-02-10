@@ -122,7 +122,7 @@ if "group_result" in st.session_state:
     st.subheader("Lateral Group Effects — p-Multipliers")
 
     pm_df = pd.DataFrame(result.p_multipliers)
-    st.dataframe(pm_df, use_container_width=True, hide_index=True)
+    st.dataframe(pm_df, width="stretch", hide_index=True)
 
     st.metric("Average Lateral Group Efficiency", f"{result.eta_lateral:.3f}")
 
@@ -142,7 +142,7 @@ if "group_result" in st.session_state:
         yaxis=dict(range=[0, 1.15]),
         height=400,
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     # --- Pile group layout visualization ---
     st.subheader("Group Layout")
@@ -181,7 +181,7 @@ if "group_result" in st.session_state:
         text="Wind / Lateral Load",
         showarrow=False, font=dict(color="red"),
     )
-    st.plotly_chart(fig_layout, use_container_width=True)
+    st.plotly_chart(fig_layout, width="stretch")
 
     # Notes
     st.markdown("### Notes")

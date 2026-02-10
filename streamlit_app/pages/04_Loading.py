@@ -149,7 +149,7 @@ if st.session_state.design_method in ("LRFD", "Both"):
             "H_lat (lbs)": f"{lc.H_lat:.0f}",
             "M_ground (ft-lbs)": f"{lc.M_ground:.0f}",
         })
-    st.dataframe(pd.DataFrame(lrfd_data), use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(lrfd_data), width="stretch", hide_index=True)
 
 if st.session_state.design_method in ("ASD", "Both"):
     st.markdown("### ASD Combinations")
@@ -163,4 +163,4 @@ if st.session_state.design_method in ("ASD", "Both"):
             "H_lat (lbs)": f"{lc.H_lat:.0f}",
             "M_ground (ft-lbs)": f"{lc.M_ground:.0f}",
         })
-    st.dataframe(pd.DataFrame(asd_data), use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(asd_data), width="stretch", hide_index=True)

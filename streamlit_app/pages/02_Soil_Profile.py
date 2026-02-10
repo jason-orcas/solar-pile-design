@@ -107,7 +107,7 @@ if st.session_state.soil_layers:
         })
 
     df = pd.DataFrame(table_data)
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.dataframe(df, width="stretch", hide_index=True)
 
     # Delete layer
     col_del1, col_del2 = st.columns([1, 3])
@@ -163,7 +163,7 @@ if st.session_state.soil_layers:
         height=400,
         showlegend=False,
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     # Effective stress plot
     st.subheader("Effective Stress Profile")
@@ -182,7 +182,7 @@ if st.session_state.soil_layers:
         yaxis_title="Depth (ft)",
         height=400,
     )
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(fig2, width="stretch")
 
 else:
     st.info("No layers defined yet. Add at least one soil layer to proceed.")

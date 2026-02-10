@@ -221,7 +221,7 @@ if "bnwf_result" in st.session_state:
     for r in range(1, 3):
         fig.update_yaxes(title_text="Depth (ft)", row=r, col=1)
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     # --- Pushover Curve ---
     if result.pushover_load is not None and result.pushover_disp is not None:
@@ -240,7 +240,7 @@ if "bnwf_result" in st.session_state:
             yaxis_title=f"{axis_label} Load (lbs)",
             height=400,
         )
-        st.plotly_chart(fig_po, use_container_width=True)
+        st.plotly_chart(fig_po, width="stretch")
 
     # --- Eigenvalue Results ---
     if result.frequencies_hz:
@@ -266,7 +266,7 @@ if "bnwf_result" in st.session_state:
             yaxis_title="Skin Friction t (lb/in)",
             height=400,
         )
-        st.plotly_chart(fig_tz, use_container_width=True)
+        st.plotly_chart(fig_tz, width="stretch")
 
     # --- q-z Curve ---
     if result.qz_curve:
@@ -283,7 +283,7 @@ if "bnwf_result" in st.session_state:
             yaxis_title="Tip Resistance q (lbs)",
             height=400,
         )
-        st.plotly_chart(fig_qz, use_container_width=True)
+        st.plotly_chart(fig_qz, width="stretch")
 
     # --- p-y Curves ---
     if result.py_curves:
@@ -302,7 +302,7 @@ if "bnwf_result" in st.session_state:
             yaxis_title="Soil Resistance p (lb/in)",
             height=400,
         )
-        st.plotly_chart(fig_py, use_container_width=True)
+        st.plotly_chart(fig_py, width="stretch")
 
     # --- Notes ---
     if result.notes:
