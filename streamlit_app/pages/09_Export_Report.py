@@ -1,4 +1,4 @@
-"""Page 9: Export PDF Report - SPile+-style professional report generation."""
+"""Page 9: Export PDF Report - professional report generation."""
 
 import sys
 from pathlib import Path
@@ -13,7 +13,7 @@ from core.soil import SoilLayer, SoilProfile, SoilType
 from core.loads import LoadInput
 
 st.header("Export PDF Report")
-st.caption("Generate a professional SPile+-style PDF report of your pile design analysis.")
+st.caption("Generate a professional PDF report of your pile design analysis.")
 
 # ============================================================================
 # Check what analyses have been completed
