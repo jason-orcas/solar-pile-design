@@ -16,11 +16,11 @@ st.header("Soil Profile")
 # --- Water table ---
 col_wt1, col_wt2 = st.columns([1, 3])
 with col_wt1:
-    has_wt = st.checkbox("Water table present?", value=st.session_state.water_table_depth is not None)
+    has_wt = st.checkbox("Water table present?", value=st.session_state.get("water_table_depth") is not None)
 with col_wt2:
     if has_wt:
         st.session_state.water_table_depth = st.number_input(
-            "Water table depth (ft)", min_value=0.0, value=st.session_state.water_table_depth or 10.0, step=0.5, format="%.1f",
+            "Water table depth (ft)", min_value=0.0, value=st.session_state.get("water_table_depth") or 10.0, step=0.5, format="%.1f",
         )
     else:
         st.session_state.water_table_depth = None
