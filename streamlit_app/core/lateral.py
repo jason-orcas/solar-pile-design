@@ -660,6 +660,92 @@ def depth_of_fixity(EI: float, soil_type: str, n_h: float = 0, k_h: float = 0) -
     return 5.0  # default 5 ft
 
 
+def minimum_embedment_broms(
+    profile,  # SoilProfile
+    B: float,
+    EI: float,
+    My: float,
+    H_required: float,
+    e: float = 4.0,
+    L_min: float = 1.0,
+    L_max: float = 50.0,
+    tol: float = 0.01,
+) -> dict:
+    """Find minimum embedment for lateral stability using Broms bisection.
+
+    Args:
+        profile: SoilProfile (uses top layer properties).
+        B: Pile width (in).
+        EI: Flexural rigidity (lb-in^2).
+        My: Yield moment (kip-in).
+        H_required: Required lateral capacity (lbs) — typically H_applied * FS.
+        e: Load eccentricity above ground (ft).
+        L_min: Lower search bound (ft).
+        L_max: Upper search bound (ft).
+        tol: Convergence tolerance (ft).
+
+    Returns:
+        dict with L_min_ft, H_ult_at_L_min, failure_mode, FS_achieved, method, notes.
+    """
+    from .soil import SoilType
+
+    if not profile.layers:
+        return {"L_min_ft": None, "notes": ["No soil layers defined"]}
+
+    top_layer = profile.layers[0]
+    is_cohesive = top_layer.soil_type in (
+        SoilType.CLAY, SoilType.SILT, SoilType.ORGANIC,
+    )
+
+    def _broms_capacity(L: float) -> BromsResult:
+        if is_cohesive:
+            c_u = top_layer.get_cu()
+            return broms_cohesive(c_u=c_u, B=B, L=L, e=e, EI=EI, My=My, FS=1.0)
+        else:
+            phi = top_layer.get_phi()
+            gamma = top_layer.gamma_effective
+            return broms_cohesionless(
+                phi=phi, gamma=gamma, B=B, L=L, e=e, EI=EI, My=My, FS=1.0,
+            )
+
+    # Check if even L_max is sufficient
+    result_max = _broms_capacity(L_max)
+    if result_max.H_ult < H_required:
+        return {
+            "L_min_ft": None,
+            "H_ult_at_L_min": result_max.H_ult,
+            "failure_mode": result_max.failure_mode,
+            "FS_achieved": result_max.H_ult / H_required if H_required > 0 else 0,
+            "method": result_max.method,
+            "notes": [f"Cannot achieve H_required={H_required:.0f} lbs even at L={L_max} ft"],
+        }
+
+    # Bisection
+    a, b = L_min, L_max
+    result = result_max
+    for _ in range(100):
+        mid = (a + b) / 2.0
+        result = _broms_capacity(mid)
+        if result.H_ult >= H_required:
+            b = mid
+        else:
+            a = mid
+        if (b - a) < tol:
+            break
+
+    L_found = round(b, 2)  # conservative upper bound
+    result = _broms_capacity(L_found)
+
+    return {
+        "L_min_ft": L_found,
+        "H_ult_at_L_min": result.H_ult,
+        "failure_mode": result.failure_mode,
+        "FS_achieved": result.H_ult / H_required if H_required > 0 else 0,
+        "method": result.method,
+        "notes": result.notes,
+    }
+
+
 # ============================================================================
 # Internal Helpers
 # ============================================================================

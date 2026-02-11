@@ -50,6 +50,19 @@ def init_session_state():
         "group_n_rows": 1,
         "group_n_cols": 1,
         "group_spacing": 36.0,
+        # Structural check
+        "above_grade": 4.0,
+        "K_factor": 2.1,
+        # Frost
+        "frost_region": "Midwest",
+        "frost_depth_in": 42.0,
+        "frost_method": "Regional lookup",
+        # Liquefaction
+        "liq_a_max": 0.2,
+        "liq_Mw": 7.5,
+        "liq_fines_content": 15.0,
+        # Service deflection
+        "service_defl_limit": 0.50,
     }
     for key, val in defaults.items():
         if key not in st.session_state:

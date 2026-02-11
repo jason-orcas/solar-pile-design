@@ -10,6 +10,10 @@ import plotly.graph_objects as go
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from core.soil import SoilLayer, SoilProfile, SoilType, correct_N_overburden
+from core.frost import (
+    FROST_DEPTH_TABLE, STEFAN_C,
+    frost_depth_regional, frost_depth_stefan, frost_check,
+)
 
 st.header("Soil Profile")
 
@@ -186,3 +190,77 @@ if st.session_state.soil_layers:
 
 else:
     st.info("No layers defined yet. Add at least one soil layer to proceed.")
+
+# ============================================================================
+# Frost Depth Check
+# ============================================================================
+st.markdown("---")
+st.subheader("Frost Depth Check")
+st.caption("IBC 1809.5: Embedment must extend at least 12 inches below frost line.")
+
+frost_method = st.radio(
+    "Frost depth method",
+    ["Regional lookup", "Stefan equation", "Manual"],
+    horizontal=True,
+    key="frost_method",
+)
+
+if frost_method == "Regional lookup":
+    region = st.selectbox("US Region", list(FROST_DEPTH_TABLE.keys()), key="frost_region")
+    frost_in = frost_depth_regional(region)
+elif frost_method == "Stefan equation":
+    fc1, fc2 = st.columns(2)
+    with fc1:
+        F_I = st.number_input(
+            "Freezing Index (degree-days F)",
+            min_value=0.0, value=1000.0, step=100.0, format="%.0f",
+        )
+    with fc2:
+        stefan_soil = st.selectbox("Soil type (Stefan C)", list(STEFAN_C.keys()))
+    frost_in = frost_depth_stefan(F_I, stefan_soil)
+    region = ""
+else:
+    frost_in = st.number_input(
+        "Frost depth (in)", min_value=0.0,
+        value=st.session_state.get("frost_depth_in", 42.0),
+        step=6.0, format="%.0f",
+    )
+    region = ""
+
+st.session_state["frost_depth_in"] = frost_in
+
+embedment = st.session_state.get("pile_embedment", 10.0)
+section_obj = None
+perimeter = 0.0
+try:
+    from core.sections import get_section
+    section_obj = st.session_state.get("section") or get_section(st.session_state.pile_section)
+    perimeter = section_obj.perimeter
+except Exception:
+    pass
+
+result_frost = frost_check(
+    frost_depth_in=frost_in,
+    embedment_ft=embedment,
+    pile_perimeter_in=perimeter,
+    method=frost_method,
+    region=region if frost_method == "Regional lookup" else "",
+)
+st.session_state["frost_result"] = result_frost
+
+fc1, fc2, fc3 = st.columns(3)
+fc1.metric("Frost Depth", f"{frost_in:.0f} in ({frost_in / 12:.1f} ft)")
+fc2.metric("Min Embedment (IBC)", f"{result_frost.min_embedment_ft:.1f} ft")
+fc3.metric("Margin", f"{result_frost.margin_ft:.1f} ft")
+
+if result_frost.passes:
+    st.success(
+        f"PASS — Embedment {embedment:.1f} ft >= required {result_frost.min_embedment_ft:.1f} ft"
+    )
+else:
+    st.error(
+        f"FAIL — Embedment {embedment:.1f} ft < required {result_frost.min_embedment_ft:.1f} ft"
+    )
+
+if result_frost.adfreeze_force_lbs:
+    st.info(f"Estimated adfreeze uplift force: {result_frost.adfreeze_force_lbs:,.0f} lbs")
