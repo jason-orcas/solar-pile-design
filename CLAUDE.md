@@ -177,28 +177,36 @@ Solar_Pile_Design/
 │   ├── sections.py          ← SteelSection database, families, corrosion analysis
 │   ├── loads.py             ← LoadInput, LRFD/ASD load combinations (ASCE 7-22)
 │   ├── axial.py             ← Axial capacity (alpha, beta, Meyerhof methods)
-│   ├── lateral.py           ← Lateral FDM p-y solver (deflection, moment, shear)
+│   ├── lateral.py           ← Lateral FDM p-y solver, Broms, min embedment
 │   ├── group.py             ← Pile group efficiency and block failure
 │   ├── bnwf.py              ← Beam-on-Nonlinear-Winkler-Foundation (FEM)
 │   ├── optimization.py      ← Section x embedment sweep optimizer
-│   ├── pdf_export.py        ← SPORK PDF report generation (fpdf2)
+│   ├── pdf_export.py        ← SPORK PDF report generation (fpdf2, 20+ sections)
+│   ├── frost.py             ← Frost depth check (IBC 1809.5, Stefan equation)
+│   ├── structural.py        ← AISC 360 structural check (H1-1 interaction)
+│   ├── liquefaction.py      ← Liquefaction screening (Boulanger & Idriss 2014)
+│   ├── installation.py      ← Installation QC (ENR, Gates, FHWA; helical torque)
+│   ├── topl_parser.py       ← TOPL file parser (Nevados, Nextracker, etc.)
 │   ├── bnwf_opensees.py     ← OpenSeesPy BNWF solver (optional)
 │   └── tz_qz.py             ← t-z / q-z spring curves
 ├── streamlit_app/           ← Streamlit frontend (Python + Plotly)
 │   ├── streamlit_app.py     ← Landing page (SPORK branding + Bowman logo)
 │   ├── assets/              ← Static assets (bowman_logo.png)
 │   ├── core/                ← Synced copy of calculation engine
-│   └── pages/               ← 10 Streamlit pages (01–10)
-│       ├── 01_Project_Setup.py
-│       ├── 02_Soil_Profile.py
+│   └── pages/               ← 14 Streamlit pages (01–14)
+│       ├── 01_Project_Setup.py      ← Project info, TOPL import, JSON save/load
+│       ├── 02_Soil_Profile.py       ← Soil layers, SPT, frost depth check
 │       ├── 03_Pile_Properties.py    ← Section selection, corrosion analysis
 │       ├── 04_Loading.py            ← ASCE 7 loads, LRFD/ASD combinations
 │       ├── 05_Pile_Optimization.py  ← Section family sweep optimizer
 │       ├── 06_Axial_Capacity.py
-│       ├── 07_Lateral_Analysis.py
+│       ├── 07_Lateral_Analysis.py   ← FDM, Broms, service defl, min embedment
 │       ├── 08_Group_Analysis.py
 │       ├── 09_FEM_Analysis.py       ← BNWF beam-on-nonlinear-Winkler
-│       └── 10_Export_Report.py      ← PDF report generation + download
+│       ├── 11_Structural_Check.py   ← AISC 360 H1-1 unity check
+│       ├── 12_Liquefaction.py       ← Boulanger & Idriss liquefaction screening
+│       ├── 13_Installation_QC.py    ← Driven pile formulas, helical torque
+│       └── 14_Export_Report.py      ← PDF report generation + download
 ├── src/                     ← Next.js frontend (legacy, not actively maintained)
 ├── api/                     ← Vercel Python serverless functions (legacy)
 └── references/              ← Engineering formula reference library (5 files)
