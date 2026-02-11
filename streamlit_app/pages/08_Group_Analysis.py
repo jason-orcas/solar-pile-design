@@ -28,20 +28,21 @@ st.subheader("Group Configuration")
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.session_state.group_n_rows = st.number_input(
-        "Number of rows", min_value=1, max_value=10,
-        value=st.session_state.get("group_n_rows", 1), step=1,
+    st.number_input(
+        "Number of rows", min_value=1, max_value=30,
+        step=1, key="group_n_rows",
     )
 with col2:
-    st.session_state.group_n_cols = st.number_input(
-        "Piles per row", min_value=1, max_value=10,
-        value=st.session_state.get("group_n_cols", 1), step=1,
+    st.number_input(
+        "Piles per row", min_value=1, max_value=30,
+        step=1, key="group_n_cols",
     )
 with col3:
-    st.session_state.group_spacing = st.number_input(
+    st.number_input(
         "Center-to-center spacing (in)", min_value=6.0,
-        value=st.session_state.get("group_spacing", 36.0), step=3.0, format="%.0f",
+        step=3.0, format="%.0f", key="group_spacing",
     )
+st.caption("Max 30 rows x 30 piles per row")
 
 n_rows = st.session_state.group_n_rows
 n_cols = st.session_state.group_n_cols
