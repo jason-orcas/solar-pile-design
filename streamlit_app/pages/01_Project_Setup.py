@@ -265,12 +265,18 @@ with col_load:
     st.subheader("Upload Project")
     uploaded = st.file_uploader("Upload a project JSON file", type=["json"])
     if uploaded is not None:
-        try:
-            data = json.loads(uploaded.read().decode("utf-8"))
-            for key in SAVEABLE_KEYS:
-                if key in data:
-                    st.session_state[key] = data[key]
-            st.success(f"Loaded project: {data.get('project_name', uploaded.name)}")
-            st.rerun()
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            st.error("Invalid project file. Please upload a valid JSON file.")
+        file_bytes = uploaded.getvalue()
+        upload_key = f"{uploaded.name}:{len(file_bytes)}"
+        if st.session_state.get("_project_upload_key") != upload_key:
+            try:
+                data = json.loads(file_bytes.decode("utf-8"))
+                for key in SAVEABLE_KEYS:
+                    if key in data:
+                        st.session_state[key] = data[key]
+                st.session_state["_project_upload_key"] = upload_key
+                st.success(f"Loaded project: {data.get('project_name', uploaded.name)}")
+                st.rerun()
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                st.error("Invalid project file. Please upload a valid JSON file.")
+        else:
+            st.success(f"Project loaded: {st.session_state.get('project_name', uploaded.name)}")
