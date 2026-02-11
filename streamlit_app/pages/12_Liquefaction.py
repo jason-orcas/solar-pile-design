@@ -125,7 +125,7 @@ if "liq_result" in st.session_state:
 
         st.dataframe(
             df.style.map(_color_status, subset=["Status"]),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 
@@ -156,4 +156,4 @@ if "liq_result" in st.session_state:
                 xaxis=dict(range=[0, max(3.0, max(lr.FS_liq for lr in evaluated) + 0.5)]),
                 height=450,
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")

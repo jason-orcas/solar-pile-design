@@ -184,7 +184,7 @@ if mfr_choice != _MFR_OPTIONS[0]:
                     if st.button(
                         "Apply TOPL Loads to Project",
                         type="primary",
-                        use_container_width=True,
+                        width="stretch",
                     ):
                         session_dict = topl_loads_to_session_dict(pi, loads)
                         # Override with user-edited values
@@ -258,7 +258,7 @@ with col_save:
         file_name=filename,
         mime="application/json",
         type="primary",
-        use_container_width=True,
+        width="stretch",
     )
 
 with col_load:

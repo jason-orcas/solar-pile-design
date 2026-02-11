@@ -219,4 +219,4 @@ if "structural_result" in st.session_state:
         height=450,
         showlegend=True,
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")

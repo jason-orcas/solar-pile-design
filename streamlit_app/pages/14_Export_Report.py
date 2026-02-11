@@ -206,7 +206,7 @@ def build_report_data() -> ReportData:
 # ============================================================================
 # Generate and download
 # ============================================================================
-if st.button("Generate PDF Report", type="primary", use_container_width=True):
+if st.button("Generate PDF Report", type="primary", width="stretch"):
     with st.spinner("Generating PDF report..."):
         try:
             report_data = build_report_data()
@@ -228,5 +228,5 @@ if st.button("Generate PDF Report", type="primary", use_container_width=True):
         file_name=filename,
         mime="application/pdf",
         type="primary",
-        use_container_width=True,
+        width="stretch",
     )
