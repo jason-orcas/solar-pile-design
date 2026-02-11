@@ -1,4 +1,4 @@
-"""Page 10: Export PDF Report - professional report generation."""
+"""Page 14: Export PDF Report - professional report generation."""
 
 import sys
 from pathlib import Path
@@ -25,20 +25,34 @@ has_lateral = "lateral_result" in st.session_state
 has_bnwf = "bnwf_result" in st.session_state
 has_group = "group_result" in st.session_state
 has_optimization = "optimization_result" in st.session_state
+has_topl = "_topl_result" in st.session_state
+has_frost = "frost_result" in st.session_state
+has_structural = "structural_result" in st.session_state
+has_service_defl = "service_defl_result" in st.session_state
+has_min_embed = "min_embed_result" in st.session_state
+has_liquefaction = "liq_result" in st.session_state
+has_install_qc = "installation_qc_driven" in st.session_state or "installation_qc_helical" in st.session_state
 
 st.subheader("Analysis Status")
 status_items = [
     ("Soil Profile", has_soil),
     ("Pile Section", has_section),
+    ("TOPL Import", has_topl),
     ("Pile Optimization", has_optimization),
     ("Axial Capacity", has_axial),
     ("Lateral Analysis", has_lateral),
     ("FEM Analysis (BNWF)", has_bnwf),
+    ("Frost Depth Check", has_frost),
+    ("AISC Structural", has_structural),
+    ("Service Deflection", has_service_defl),
+    ("Min Embedment", has_min_embed),
+    ("Liquefaction", has_liquefaction),
+    ("Installation QC", has_install_qc),
     ("Group Analysis", has_group),
 ]
-cols = st.columns(3)
+cols = st.columns(4)
 for i, (name, available) in enumerate(status_items):
-    with cols[i % 3]:
+    with cols[i % 4]:
         if available:
             st.success(name)
         else:
@@ -83,6 +97,19 @@ st.markdown("---")
 # ============================================================================
 # Build ReportData from session state
 # ============================================================================
+def _extract_topl_manufacturer() -> str:
+    key = st.session_state.get("_topl_cache_key", "")
+    if ":" in key:
+        return key.split(":")[0]
+    return ""
+
+def _extract_topl_filename() -> str:
+    key = st.session_state.get("_topl_cache_key", "")
+    parts = key.split(":")
+    if len(parts) >= 2:
+        return parts[1]
+    return ""
+
 def build_report_data() -> ReportData:
     """Assemble ReportData from Streamlit session state."""
     section = st.session_state.get("section") or get_section(st.session_state.pile_section)
@@ -159,6 +186,20 @@ def build_report_data() -> ReportData:
         corrosion_t_loss=st.session_state.get("corrosion_t_loss", 0.0),
         nominal_section=nominal_section,
         optimization_result=st.session_state.get("optimization_result"),
+        # TOPL import
+        topl_result=st.session_state.get("_topl_result"),
+        topl_column_selected=st.session_state.get("topl_column_select", ""),
+        topl_manufacturer=_extract_topl_manufacturer(),
+        topl_filename=_extract_topl_filename(),
+        # New engineering checks
+        frost_result=st.session_state.get("frost_result"),
+        structural_result=st.session_state.get("structural_result"),
+        service_defl_result=st.session_state.get("service_defl_result"),
+        service_defl_limit=st.session_state.get("service_defl_limit", 0.5),
+        min_embed_result=st.session_state.get("min_embed_result"),
+        liq_result=st.session_state.get("liq_result"),
+        installation_qc_driven=st.session_state.get("installation_qc_driven"),
+        installation_qc_helical=st.session_state.get("installation_qc_helical"),
     )
 
 

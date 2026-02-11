@@ -26,6 +26,10 @@ from .lateral import LateralResult, PYCurve
 from .group import GroupResult
 from .bnwf import BNWFResult
 from .loads import LoadCase, LoadInput, generate_lrfd_combinations, generate_asd_combinations
+from .frost import FrostCheckResult
+from .structural import AISCUnityResult
+from .liquefaction import LiquefactionResult, LiquefactionLayerResult
+from .installation import DrivenPileQCResult, HelicalQCResult
 
 
 # ============================================================================
@@ -90,6 +94,32 @@ class ReportData:
 
     # Optimization
     optimization_result: Any | None = None
+
+    # TOPL Import
+    topl_result: Any | None = None           # TOPLParseResult
+    topl_column_selected: str = ""
+    topl_manufacturer: str = ""
+    topl_filename: str = ""
+
+    # Frost check
+    frost_result: FrostCheckResult | None = None
+
+    # AISC Structural check
+    structural_result: AISCUnityResult | None = None
+
+    # Service deflection check
+    service_defl_result: Any | None = None   # LateralResult
+    service_defl_limit: float = 0.5          # in
+
+    # Minimum embedment
+    min_embed_result: dict | None = None
+
+    # Liquefaction screening
+    liq_result: LiquefactionResult | None = None
+
+    # Installation QC
+    installation_qc_driven: list | None = None   # list[DrivenPileQCResult]
+    installation_qc_helical: Any | None = None   # HelicalQCResult
 
 
 # ============================================================================
@@ -347,13 +377,21 @@ def _render_cover_page(pdf: PileReportPDF, data: ReportData):
         ("3A", "Corrosion Allowance"),
         ("4", "Soil Profile and Properties"),
         ("4A", "Pile Optimization Summary"),
+        ("4B", "TOPL Import Summary"),
         ("5", "Lateral Analysis Summary"),
         ("6", "Vertical Load Check"),
+        ("6A", "Frost Depth Check"),
+        ("6B", "Minimum Embedment"),
         ("7", "Pile Head Loads"),
         ("8", "Load Combinations"),
         ("9", "Pile Plot and Results"),
         ("10", "Pile Analysis Summary"),
-        ("11", "Warnings and Alerts"),
+        ("10A", "AISC Structural Check"),
+        ("10B", "Service Deflection Check"),
+        ("11", "Group Analysis"),
+        ("12", "Liquefaction Screening"),
+        ("13", "Installation QC"),
+        ("14", "Warnings and Alerts"),
     ]
     pdf.styled_table(
         headers=["S.No", "Description", "Status"],
@@ -1129,6 +1167,413 @@ def _render_group_summary(pdf: PileReportPDF, data: ReportData):
         pdf.card_end()
 
 
+def _pass_fail_banner(pdf: PileReportPDF, passes: bool, text: str):
+    """Render a prominent PASS/FAIL banner."""
+    pdf._check_page_space(12)
+    if passes:
+        pdf.set_fill_color(34, 139, 34)
+    else:
+        pdf.set_fill_color(200, 40, 40)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font("Helvetica", "B", 10)
+    x = pdf.l_margin + 15
+    w = pdf.w - 2 * pdf.l_margin - 30
+    y = pdf.get_y()
+    pdf.set_draw_color(100, 100, 100)
+    pdf.rect(x, y, w, 8, style="FD")
+    pdf.set_xy(x, y + 1)
+    pdf.cell(w, 6, PileReportPDF._safe_text(text), align="C")
+    pdf.set_text_color(*pdf.TEXT_PRIMARY)
+    pdf.ln(12)
+
+
+def _render_topl_summary(pdf: PileReportPDF, data: ReportData):
+    """TOPL Import Summary: manufacturer, document, column type, imported loads."""
+    if data.topl_result is None:
+        return
+    tr = data.topl_result
+    if not getattr(tr, "success", False):
+        return
+
+    pdf.add_page()
+    pdf.section_header("TOPL Import Summary")
+
+    # Document info
+    pdf.card_start()
+    pdf.sub_header("Document Info")
+    pdf.kv_row("Manufacturer", data.topl_manufacturer or "-")
+    pdf.kv_row("Document", data.topl_filename or "-")
+    pdf.kv_row("Column Type", data.topl_column_selected or "-")
+    pdf.card_end()
+
+    # Project info from TOPL
+    pi = getattr(tr, "project_info", None)
+    if pi:
+        pdf.card_start()
+        pdf.sub_header("Extracted Project Info")
+        if getattr(pi, "project_name", ""):
+            pdf.kv_row("Project Name", pi.project_name)
+        if getattr(pi, "location", ""):
+            pdf.kv_row("Location", pi.location)
+        if getattr(pi, "asce_version", ""):
+            pdf.kv_row("ASCE Version", pi.asce_version)
+        if getattr(pi, "wind_speed_mph", None) is not None:
+            pdf.kv_row("Wind Speed", f"{pi.wind_speed_mph}", "mph")
+        if getattr(pi, "ground_snow_psf", None) is not None:
+            pdf.kv_row("Ground Snow", f"{pi.ground_snow_psf}", "psf")
+        if getattr(pi, "seismic_sds", None) is not None:
+            pdf.kv_row("Seismic SDS", f"{pi.seismic_sds}")
+        if getattr(pi, "risk_category", ""):
+            pdf.kv_row("Risk Category", pi.risk_category)
+        if getattr(pi, "exposure", ""):
+            pdf.kv_row("Exposure", pi.exposure)
+        pdf.card_end()
+
+    # Imported loads table
+    if data.load_input:
+        li = data.load_input
+        pdf.card_start()
+        pdf.sub_header("Imported Loads")
+        rows = [
+            ["Dead Load", f"{li.dead:.0f}", "lbs"],
+            ["Snow Load", f"{li.snow:.0f}", "lbs"],
+            ["Wind Uplift", f"{li.wind_up:.0f}", "lbs"],
+            ["Wind Downward", f"{li.wind_down:.0f}", "lbs"],
+            ["Wind Lateral", f"{li.wind_lateral:.0f}", "lbs"],
+            ["Wind Moment", f"{li.wind_moment:.0f}", "ft-lbs"],
+            ["Seismic Lateral", f"{li.seismic_lateral:.0f}", "lbs"],
+            ["Seismic Vertical", f"{li.seismic_vertical:.0f}", "lbs"],
+            ["Seismic Moment", f"{li.seismic_moment:.0f}", "ft-lbs"],
+            ["Lever Arm", f"{li.lever_arm:.2f}", "ft"],
+        ]
+        pdf.styled_table(["Load Type", "Value", "Unit"], rows,
+                         col_widths=[60, 35, 25])
+        pdf.card_end()
+
+    # Warnings
+    warnings = getattr(tr, "warnings", [])
+    if warnings:
+        pdf.card_start()
+        pdf.sub_header("Import Warnings")
+        pdf.set_font("Helvetica", "", 8)
+        for w in warnings:
+            pdf.set_x(pdf.l_margin + 10)
+            pdf.multi_cell(pdf.w - 2 * pdf.l_margin - 20, 5,
+                           PileReportPDF._safe_text(f"- {w}"))
+            pdf.ln(1)
+        pdf.card_end()
+
+
+def _render_frost_check(pdf: PileReportPDF, data: ReportData):
+    """Frost Depth Check (IBC 1809.5)."""
+    if data.frost_result is None:
+        return
+    fr = data.frost_result
+
+    pdf.add_page()
+    pdf.section_header("Frost Depth Check (IBC 1809.5)")
+
+    status = "PASS" if fr.passes else "FAIL"
+    _pass_fail_banner(
+        pdf, fr.passes,
+        f"{status} -- Embedment {fr.actual_embedment_ft:.1f} ft vs "
+        f"required {fr.min_embedment_ft:.1f} ft",
+    )
+
+    pdf.card_start()
+    pdf.kv_row("Method", fr.method or "-")
+    if fr.region:
+        pdf.kv_row("Region", fr.region)
+    pdf.kv_row("Frost Depth", f"{fr.frost_depth_in:.0f}", "in",
+               f"({fr.frost_depth_ft:.1f} ft)")
+    pdf.kv_row("Min Embedment (IBC)", f"{fr.min_embedment_ft:.1f}", "ft")
+    pdf.kv_row("Actual Embedment", f"{fr.actual_embedment_ft:.1f}", "ft")
+    pdf.kv_row("Margin", f"{fr.margin_ft:.1f}", "ft")
+    if fr.adfreeze_force_lbs is not None:
+        pdf.kv_row("Adfreeze Uplift", f"{fr.adfreeze_force_lbs:,.0f}", "lbs")
+    pdf.card_end()
+
+    if fr.notes:
+        pdf.set_font("Helvetica", "I", 8)
+        for n in fr.notes:
+            pdf.set_x(pdf.l_margin + 10)
+            pdf.cell(0, 4, PileReportPDF._safe_text(n))
+            pdf.ln(4)
+
+
+def _render_structural_check(pdf: PileReportPDF, data: ReportData):
+    """AISC 360 Structural Check (H1-1)."""
+    if data.structural_result is None:
+        return
+    sr = data.structural_result
+
+    pdf.add_page()
+    pdf.section_header("AISC 360 Structural Check (H1-1)")
+
+    status = "PASS" if sr.passes else "FAIL"
+    _pass_fail_banner(
+        pdf, sr.passes,
+        f"{status} -- Unity Ratio = {sr.unity_ratio:.3f} (Eq. {sr.equation_used})",
+    )
+
+    # Compression
+    pdf.card_start()
+    pdf.sub_header("Compression Capacity (AISC Ch. E)")
+    pdf.kv_row("K (eff length factor)", f"{sr.K:.1f}")
+    pdf.kv_row("L_b (unbraced length)", f"{sr.L_b_ft:.2f}", "ft")
+    pdf.kv_row("D_f (depth of fixity)", f"{sr.D_f_ft:.2f}", "ft")
+    pdf.kv_row("r_x", f"{sr.r_x:.3f}", "in")
+    pdf.kv_row("r_y", f"{sr.r_y:.3f}", "in")
+    pdf.kv_row("KL/r (governing)", f"{sr.KL_r:.0f}")
+    pdf.kv_row("F_cr", f"{sr.F_cr_ksi:.2f}", "ksi")
+    pdf.kv_row("P_n", f"{sr.P_n:,.0f}", "lbs")
+    pdf.kv_row("phi_c * P_n", f"{sr.phi_c_Pn:,.0f}", "lbs")
+    pdf.card_end()
+
+    # Flexure
+    pdf.card_start()
+    pdf.sub_header("Flexural Capacity (AISC Ch. F)")
+    pdf.kv_row("M_nx (strong)", f"{sr.M_nx:.1f}", "kip-in")
+    pdf.kv_row("M_ny (weak)", f"{sr.M_ny:.1f}", "kip-in")
+    pdf.kv_row("phi_b * M_nx", f"{sr.phi_b_Mnx:.1f}", "kip-in")
+    pdf.kv_row("phi_b * M_ny", f"{sr.phi_b_Mny:.1f}", "kip-in")
+    pdf.card_end()
+
+    # Interaction check
+    pdf.card_start()
+    pdf.sub_header("Interaction Check (AISC Ch. H)")
+    pdf.kv_row("P_u (factored axial)", f"{sr.P_u:,.0f}", "lbs")
+    pdf.kv_row("M_ux (strong-axis)", f"{sr.M_ux:.1f}", "kip-in")
+    pdf.kv_row("M_uy (weak-axis)", f"{sr.M_uy:.1f}", "kip-in")
+    pdf.kv_row("Axial Ratio P_u/(phi*Pn)", f"{sr.axial_ratio:.3f}")
+    pdf.kv_row("Governing Equation", sr.equation_used)
+    pdf.kv_row("Unity Ratio", f"{sr.unity_ratio:.3f}")
+    pdf.card_end()
+
+    if sr.notes:
+        pdf.set_font("Helvetica", "I", 8)
+        for n in sr.notes:
+            pdf.set_x(pdf.l_margin + 10)
+            pdf.cell(0, 4, PileReportPDF._safe_text(n))
+            pdf.ln(4)
+
+
+def _render_service_deflection(pdf: PileReportPDF, data: ReportData):
+    """Service Load Deflection Check."""
+    if data.service_defl_result is None:
+        return
+    sdr = data.service_defl_result
+
+    pdf.add_page()
+    pdf.section_header("Service Load Deflection Check")
+
+    y_g = abs(float(sdr.y_ground))
+    limit = data.service_defl_limit
+    passes = y_g <= limit
+    margin = limit - y_g
+
+    status = "PASS" if passes else "FAIL"
+    _pass_fail_banner(
+        pdf, passes,
+        f"{status} -- Deflection {y_g:.3f} in vs limit {limit:.2f} in",
+    )
+
+    pdf.card_start()
+    pdf.kv_row("Service Deflection (ground)", f"{y_g:.3f}", "in")
+    pdf.kv_row("Deflection Limit", f"{limit:.2f}", "in")
+    pdf.kv_row("Margin", f"{margin:.3f}", "in")
+    pdf.card_end()
+
+
+def _render_min_embedment(pdf: PileReportPDF, data: ReportData):
+    """Minimum Embedment for Lateral Stability."""
+    if data.min_embed_result is None:
+        return
+    me = data.min_embed_result
+    if me.get("L_min_ft") is None:
+        return
+
+    pdf.add_page()
+    pdf.section_header("Minimum Embedment for Lateral Stability")
+
+    passes = data.pile_embedment >= me["L_min_ft"]
+    margin = data.pile_embedment - me["L_min_ft"]
+    status = "PASS" if passes else "FAIL"
+    _pass_fail_banner(
+        pdf, passes,
+        f"{status} -- Embedment {data.pile_embedment:.1f} ft vs "
+        f"required {me['L_min_ft']:.1f} ft",
+    )
+
+    pdf.card_start()
+    pdf.kv_row("Min Embedment Required", f"{me['L_min_ft']:.1f}", "ft")
+    pdf.kv_row("H_ult at L_min", f"{me['H_ult_at_L_min']:,.0f}", "lbs")
+    pdf.kv_row("Failure Mode", me.get("failure_mode", "-"))
+    if me.get("FS_achieved"):
+        pdf.kv_row("FS Achieved", f"{me['FS_achieved']:.2f}")
+    pdf.kv_row("Method", me.get("method", "-"))
+    pdf.kv_row("Current Embedment", f"{data.pile_embedment:.1f}", "ft")
+    pdf.kv_row("Margin", f"{margin:.1f}", "ft")
+    pdf.card_end()
+
+    for n in me.get("notes", []):
+        pdf.set_font("Helvetica", "I", 8)
+        pdf.set_x(pdf.l_margin + 10)
+        pdf.cell(0, 4, PileReportPDF._safe_text(n))
+        pdf.ln(4)
+
+
+def _render_liquefaction(pdf: PileReportPDF, data: ReportData):
+    """Liquefaction Screening (Boulanger & Idriss 2014)."""
+    if data.liq_result is None:
+        return
+    liq = data.liq_result
+
+    pdf.add_page()
+    pdf.section_header("Liquefaction Screening (Boulanger & Idriss 2014)")
+
+    # Status banner
+    if liq.any_liquefiable:
+        _pass_fail_banner(pdf, False, f"LIQUEFIABLE -- {liq.summary}")
+    elif "MARGINAL" in liq.summary.upper():
+        # Use amber/orange for marginal
+        pdf._check_page_space(12)
+        pdf.set_fill_color(210, 160, 30)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font("Helvetica", "B", 10)
+        x = pdf.l_margin + 15
+        w = pdf.w - 2 * pdf.l_margin - 30
+        y = pdf.get_y()
+        pdf.set_draw_color(100, 100, 100)
+        pdf.rect(x, y, w, 8, style="FD")
+        pdf.set_xy(x, y + 1)
+        pdf.cell(w, 6, PileReportPDF._safe_text(f"MARGINAL -- {liq.summary}"),
+                 align="C")
+        pdf.set_text_color(*pdf.TEXT_PRIMARY)
+        pdf.ln(12)
+    else:
+        _pass_fail_banner(pdf, True, f"NON-LIQUEFIABLE -- {liq.summary}")
+
+    # Seismic parameters
+    pdf.card_start()
+    pdf.sub_header("Seismic Parameters")
+    pdf.kv_row("PGA (a_max)", f"{liq.a_max_g:.3f}", "g")
+    pdf.kv_row("M_w", f"{liq.M_w:.1f}")
+    pdf.kv_row("MSF", f"{liq.MSF:.2f}")
+    pdf.card_end()
+
+    # Layer results table
+    if liq.layer_results:
+        pdf.card_start()
+        pdf.sub_header("Layer Results")
+        headers = ["Depth (ft)", "Layer", "Soil", "N_SPT",
+                   "(N1)_60", "(N1)_60cs", "CSR", "CRR", "FS_liq", "Status"]
+        rows = []
+        for lr in liq.layer_results:
+            rows.append([
+                f"{lr.depth_ft:.1f}",
+                lr.layer_description[:18] if lr.layer_description else "-",
+                lr.soil_type[:6] if lr.soil_type else "-",
+                f"{lr.N_spt:.0f}" if lr.N_spt else "-",
+                f"{lr.N1_60:.1f}" if lr.N1_60 else "-",
+                f"{lr.N1_60cs:.1f}" if lr.N1_60cs else "-",
+                f"{lr.CSR:.3f}" if lr.CSR else "-",
+                f"{lr.CRR:.3f}" if lr.CRR else "-",
+                f"{lr.FS_liq:.2f}" if lr.FS_liq else "-",
+                lr.status,
+            ])
+        pdf.styled_table(headers, rows,
+                         col_widths=[16, 22, 13, 13, 14, 14, 14, 14, 14, 24])
+        pdf.card_end()
+
+    if liq.notes:
+        pdf.set_font("Helvetica", "I", 8)
+        for n in liq.notes:
+            pdf.set_x(pdf.l_margin + 10)
+            pdf.multi_cell(pdf.w - 2 * pdf.l_margin - 20, 4,
+                           PileReportPDF._safe_text(n))
+            pdf.ln(2)
+
+
+def _render_installation_qc(pdf: PileReportPDF, data: ReportData):
+    """Installation QC — dynamic formulas or torque correlation."""
+    if data.installation_qc_driven is None and data.installation_qc_helical is None:
+        return
+
+    pdf.add_page()
+
+    if data.installation_qc_driven:
+        pdf.section_header("Installation QC -- Dynamic Formulas")
+
+        pdf.card_start()
+        pdf.sub_header("Driving Formula Comparison")
+        headers = ["Method", "R_u (kips)", "R_allow (kips)", "FS",
+                   "W_r (lbs)", "h (ft)", "s (in)", "E_h (ft-lbs)"]
+        rows = []
+        for r in data.installation_qc_driven:
+            rows.append([
+                r.method,
+                f"{r.R_u_kips:.1f}",
+                f"{r.R_allow_lbs / 1000:.1f}",
+                f"{r.FS:.1f}",
+                f"{r.W_r_lbs:,.0f}",
+                f"{r.h_ft:.1f}",
+                f"{r.s_in:.3f}",
+                f"{r.E_h_ft_lbs:,.0f}",
+            ])
+        pdf.styled_table(headers, rows,
+                         col_widths=[30, 20, 20, 12, 22, 14, 14, 24])
+        pdf.card_end()
+
+        # Notes
+        all_notes = []
+        for r in data.installation_qc_driven:
+            for n in r.notes:
+                if n not in all_notes:
+                    all_notes.append(n)
+        if all_notes:
+            pdf.set_font("Helvetica", "I", 8)
+            for n in all_notes:
+                pdf.set_x(pdf.l_margin + 10)
+                pdf.cell(0, 4, PileReportPDF._safe_text(n))
+                pdf.ln(4)
+
+        # Comparison with axial
+        if data.axial_result:
+            pdf.ln(3)
+            pdf.card_start()
+            pdf.sub_header("Comparison with Geotechnical Capacity")
+            best = data.installation_qc_driven[-1]  # FHWA Modified Gates
+            pdf.kv_row(f"Dynamic R_allow ({best.method})",
+                       f"{best.R_allow_lbs:,.0f}", "lbs")
+            pdf.kv_row("Geotechnical Q_ult (compression)",
+                       f"{data.axial_result.Q_ult_compression:,.0f}", "lbs")
+            pdf.card_end()
+
+    if data.installation_qc_helical:
+        hr = data.installation_qc_helical
+        if data.installation_qc_driven:
+            pdf.ln(5)
+        pdf.section_header("Installation QC -- Torque Correlation")
+
+        pdf.card_start()
+        pdf.kv_row("Shaft Size", str(hr.shaft_size))
+        pdf.kv_row("K_t", f"{hr.K_t:.0f}", "1/ft")
+        pdf.kv_row("Installation Torque", f"{hr.torque_ft_lbs:,.0f}", "ft-lbs")
+        pdf.kv_row("Q_ult", f"{hr.Q_ult_lbs:,.0f}", "lbs")
+        pdf.kv_row(f"Q_allow (FS={hr.FS:.1f})", f"{hr.Q_allow_lbs:,.0f}", "lbs")
+        pdf.card_end()
+
+        if data.axial_result:
+            pdf.ln(3)
+            pdf.card_start()
+            pdf.sub_header("Comparison with Geotechnical Capacity")
+            pdf.kv_row("Torque-based Q_ult", f"{hr.Q_ult_lbs:,.0f}", "lbs")
+            pdf.kv_row("Geotechnical Q_ult",
+                       f"{data.axial_result.Q_ult_compression:,.0f}", "lbs")
+            pdf.card_end()
+
+
 def _render_warnings(pdf: PileReportPDF, data: ReportData):
     """Warnings and Alerts section."""
     pdf.add_page()
@@ -1203,13 +1648,21 @@ def _section_available(section_num: str, data: ReportData) -> bool:
         "3A": data.corrosion_enabled and data.nominal_section is not None,
         "4": bool(data.soil_layers_raw),
         "4A": data.optimization_result is not None,
+        "4B": data.topl_result is not None,
         "5": data.lateral_result is not None or data.bnwf_result is not None,
         "6": data.axial_result is not None,
+        "6A": data.frost_result is not None,
+        "6B": data.min_embed_result is not None and data.min_embed_result.get("L_min_ft") is not None,
         "7": data.load_input is not None,
         "8": data.load_input is not None,
         "9": data.lateral_result is not None or data.bnwf_result is not None,
         "10": data.lateral_result is not None or data.bnwf_result is not None,
-        "11": True,
+        "10A": data.structural_result is not None,
+        "10B": data.service_defl_result is not None,
+        "11": data.group_result is not None and data.group_result.n_piles > 1,
+        "12": data.liq_result is not None,
+        "13": data.installation_qc_driven is not None or data.installation_qc_helical is not None,
+        "14": True,
     }
     return checks.get(section_num, False)
 
@@ -1238,13 +1691,20 @@ def generate_report(data: ReportData, logo_path: str | None = None) -> bytes:
     _render_corrosion_summary(pdf, data)
     _render_soil_profile(pdf, data)
     _render_optimization_summary(pdf, data)
+    _render_topl_summary(pdf, data)
     _render_lateral_summary(pdf, data)
     _render_vertical_load_check(pdf, data)
+    _render_frost_check(pdf, data)
+    _render_min_embedment(pdf, data)
     _render_pile_head_loads(pdf, data)
     _render_load_combinations(pdf, data)
     _render_depth_profiles(pdf, data)
     _render_pile_analysis_summary(pdf, data)
+    _render_structural_check(pdf, data)
+    _render_service_deflection(pdf, data)
     _render_group_summary(pdf, data)
+    _render_liquefaction(pdf, data)
+    _render_installation_qc(pdf, data)
     _render_warnings(pdf, data)
 
     return bytes(pdf.output())
