@@ -1,8 +1,18 @@
-"""Page 1: Project setup and download/upload."""
+"""Page 1: Project setup, TOPL import, and download/upload."""
 
 import json
+import sys
+from pathlib import Path
 
 import streamlit as st
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from core.topl_parser import (
+    Manufacturer,
+    TOPLParseResult,
+    parse_topl,
+    topl_loads_to_session_dict,
+)
 
 st.header("Project Setup")
 
@@ -20,9 +30,189 @@ with col2:
         "Project Notes", value=st.session_state.get("project_notes", ""), height=120,
     )
 
+# ============================================================================
+# Import TOPL Document
+# ============================================================================
+st.markdown("---")
+st.subheader("Import TOPL Document")
+st.caption(
+    "Upload a manufacturer Top-of-Pile-Load document to auto-populate project "
+    "info and design loads. Supported: ATI (PDF), Nevados (PDF), Nextpower (XLSX)."
+)
+
+_MFR_OPTIONS = ["-- Select Manufacturer --"] + [m.value for m in Manufacturer]
+_MFR_EXTENSIONS = {
+    Manufacturer.ATI: ["pdf"],
+    Manufacturer.NEVADOS: ["pdf"],
+    Manufacturer.NEXTPOWER: ["xlsx"],
+}
+
+mfr_choice = st.selectbox("Manufacturer", _MFR_OPTIONS, key="topl_mfr_select")
+
+if mfr_choice != _MFR_OPTIONS[0]:
+    mfr_enum = Manufacturer(mfr_choice)
+    exts = _MFR_EXTENSIONS[mfr_enum]
+    ext_label = ", ".join(f".{e}" for e in exts)
+
+    uploaded = st.file_uploader(
+        f"Upload TOPL Document ({ext_label})",
+        type=exts,
+        key="topl_file_uploader",
+    )
+
+    if uploaded is not None:
+        # Parse on fresh upload or if file changed
+        file_bytes = uploaded.getvalue()
+        cache_key = f"{mfr_choice}:{uploaded.name}:{len(file_bytes)}"
+
+        if st.session_state.get("_topl_cache_key") != cache_key:
+            result = parse_topl(file_bytes, uploaded.name, mfr_enum)
+            st.session_state["_topl_result"] = result
+            st.session_state["_topl_cache_key"] = cache_key
+
+        result: TOPLParseResult = st.session_state.get("_topl_result")
+
+        if result is None:
+            st.warning("No parse result available. Try re-uploading.")
+        elif not result.success:
+            for err in result.errors:
+                st.error(err)
+        else:
+            # --- Warnings ---
+            if result.warnings:
+                with st.expander(f"Warnings ({len(result.warnings)})", expanded=False):
+                    for w in result.warnings:
+                        st.warning(w)
+
+            # --- Project info ---
+            pi = result.project_info
+            info_parts = []
+            if pi.project_name:
+                info_parts.append(f"**Project:** {pi.project_name}")
+            if pi.location:
+                info_parts.append(f"**Location:** {pi.location}")
+            params = []
+            if pi.wind_speed_mph is not None:
+                params.append(f"Wind: {pi.wind_speed_mph} mph")
+            if pi.ground_snow_psf is not None:
+                params.append(f"Snow: {pi.ground_snow_psf} psf")
+            if pi.seismic_sds is not None:
+                params.append(f"SDS: {pi.seismic_sds}")
+            if pi.exposure:
+                params.append(f"Exp: {pi.exposure}")
+            if pi.risk_category:
+                params.append(f"Risk: {pi.risk_category}")
+            if pi.asce_version:
+                params.append(f"Code: {pi.asce_version}")
+            if params:
+                info_parts.append(" | ".join(params))
+
+            with st.expander("Extracted Project Info", expanded=True):
+                for part in info_parts:
+                    st.markdown(part)
+
+            # --- Column selector ---
+            options = result.column_options
+            if not options:
+                st.error("No column/post options parsed from document.")
+            else:
+                selected = st.selectbox(
+                    "Select Column / Post Type",
+                    options,
+                    key="topl_column_select",
+                    help="Choose which pile position to import loads for.",
+                )
+
+                loads = result.loads_by_column.get(selected)
+                if loads is None:
+                    st.error(f"No data for selection: {selected}")
+                else:
+                    # --- Editable load preview ---
+                    st.markdown("#### Extracted Loads *(edit before applying)*")
+                    c_grav, c_wind, c_seis = st.columns(3)
+
+                    with c_grav:
+                        st.markdown("**Gravity**")
+                        ed_dead = st.number_input(
+                            "Dead Load (lbs)", value=round(loads.dead_load, 1),
+                            step=10.0, format="%.1f", key="topl_ed_dead",
+                        )
+                        ed_snow = st.number_input(
+                            "Snow Load (lbs)", value=round(loads.snow_load, 1),
+                            step=10.0, format="%.1f", key="topl_ed_snow",
+                        )
+
+                    with c_wind:
+                        st.markdown("**Wind**")
+                        ed_up = st.number_input(
+                            "Uplift (lbs)", value=round(loads.wind_up, 1),
+                            step=10.0, format="%.1f", key="topl_ed_up",
+                        )
+                        ed_down = st.number_input(
+                            "Downforce (lbs)", value=round(loads.wind_down, 1),
+                            step=10.0, format="%.1f", key="topl_ed_down",
+                        )
+                        ed_lateral = st.number_input(
+                            "Lateral (lbs)", value=round(loads.wind_lateral, 1),
+                            step=10.0, format="%.1f", key="topl_ed_lateral",
+                        )
+                        ed_moment = st.number_input(
+                            "Moment (ft-lbs)", value=round(loads.wind_moment, 1),
+                            step=10.0, format="%.1f", key="topl_ed_moment",
+                        )
+
+                    with c_seis:
+                        st.markdown("**Seismic & Geometry**")
+                        ed_slat = st.number_input(
+                            "Seismic Lateral (lbs)", value=round(loads.seismic_lateral, 1),
+                            step=10.0, format="%.1f", key="topl_ed_slat",
+                        )
+                        ed_svert = st.number_input(
+                            "Seismic Vertical (lbs)", value=round(loads.seismic_vertical, 1),
+                            step=10.0, format="%.1f", key="topl_ed_svert",
+                        )
+                        ed_smom = st.number_input(
+                            "Seismic Moment (ft-lbs)", value=round(loads.seismic_moment, 1),
+                            step=10.0, format="%.1f", key="topl_ed_smom",
+                        )
+                        ed_lever = st.number_input(
+                            "Lever Arm (ft)", value=round(loads.lever_arm, 2),
+                            step=0.25, format="%.2f", key="topl_ed_lever",
+                        )
+
+                    # --- Apply button ---
+                    if st.button(
+                        "Apply TOPL Loads to Project",
+                        type="primary",
+                        use_container_width=True,
+                    ):
+                        session_dict = topl_loads_to_session_dict(pi, loads)
+                        # Override with user-edited values
+                        session_dict["dead_load"] = ed_dead
+                        session_dict["snow_load"] = ed_snow
+                        session_dict["wind_up"] = ed_up
+                        session_dict["wind_down"] = ed_down
+                        session_dict["wind_lateral"] = ed_lateral
+                        session_dict["wind_moment"] = ed_moment
+                        session_dict["seismic_lateral"] = ed_slat
+                        session_dict["seismic_vertical"] = ed_svert
+                        session_dict["seismic_moment"] = ed_smom
+                        session_dict["lever_arm"] = ed_lever
+
+                        for key, val in session_dict.items():
+                            st.session_state[key] = val
+
+                        st.success(
+                            f"TOPL loads applied from {pi.manufacturer} — "
+                            f"{selected}. Navigate to the Loading page to review."
+                        )
+                        st.balloons()
+
+# ============================================================================
+# Download / Upload Project JSON
+# ============================================================================
 st.markdown("---")
 
-# --- Download / Upload ---
 SAVEABLE_KEYS = [
     "project_name", "project_location", "project_notes",
     "soil_layers", "water_table_depth",
