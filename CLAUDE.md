@@ -166,40 +166,59 @@ Unless otherwise requested, present results using:
 
 ## Project Structure
 
-This project has **two parallel frontends** sharing a common Python calculation engine:
+**SPORK — Solar Pile Optimization & Report Kit**
+
+The primary frontend is a Streamlit app. A legacy Next.js frontend exists but is not actively maintained.
 
 ```
 Solar_Pile_Design/
-├── core/              ← Shared Python calculation engine (authoritative source)
-├── streamlit_app/     ← Streamlit frontend (Python + Plotly)
-│   ├── streamlit_app.py
-│   ├── core/          ← Local copy of calculation engine for Streamlit imports
-│   └── pages/         ← 9 Streamlit pages (01–09)
-├── src/               ← Next.js frontend (React + TypeScript + Recharts)
-│   ├── app/           ← App Router pages (7 routes)
-│   ├── components/    ← ProjectProvider (React context)
-│   └── lib/           ← api.ts (TypeScript API client)
-├── api/               ← Vercel Python serverless functions (POST endpoints)
-└── references/        ← Engineering formula reference library (5 files)
+├── core/                    ← Shared Python calculation engine (authoritative source)
+│   ├── soil.py              ← SoilLayer, SoilProfile, SoilType, p-y curves
+│   ├── sections.py          ← SteelSection database, families, corrosion analysis
+│   ├── loads.py             ← LoadInput, LRFD/ASD load combinations (ASCE 7-22)
+│   ├── axial.py             ← Axial capacity (alpha, beta, Meyerhof methods)
+│   ├── lateral.py           ← Lateral FDM p-y solver (deflection, moment, shear)
+│   ├── group.py             ← Pile group efficiency and block failure
+│   ├── bnwf.py              ← Beam-on-Nonlinear-Winkler-Foundation (FEM)
+│   ├── optimization.py      ← Section x embedment sweep optimizer
+│   ├── pdf_export.py        ← SPORK PDF report generation (fpdf2)
+│   ├── bnwf_opensees.py     ← OpenSeesPy BNWF solver (optional)
+│   └── tz_qz.py             ← t-z / q-z spring curves
+├── streamlit_app/           ← Streamlit frontend (Python + Plotly)
+│   ├── streamlit_app.py     ← Landing page (SPORK branding + Bowman logo)
+│   ├── assets/              ← Static assets (bowman_logo.png)
+│   ├── core/                ← Synced copy of calculation engine
+│   └── pages/               ← 10 Streamlit pages (01–10)
+│       ├── 01_Project_Setup.py
+│       ├── 02_Soil_Profile.py
+│       ├── 03_Pile_Properties.py    ← Section selection, corrosion analysis
+│       ├── 04_Loading.py            ← ASCE 7 loads, LRFD/ASD combinations
+│       ├── 05_Pile_Optimization.py  ← Section family sweep optimizer
+│       ├── 06_Axial_Capacity.py
+│       ├── 07_Lateral_Analysis.py
+│       ├── 08_Group_Analysis.py
+│       ├── 09_FEM_Analysis.py       ← BNWF beam-on-nonlinear-Winkler
+│       └── 10_Export_Report.py      ← PDF report generation + download
+├── src/                     ← Next.js frontend (legacy, not actively maintained)
+├── api/                     ← Vercel Python serverless functions (legacy)
+└── references/              ← Engineering formula reference library (5 files)
 ```
 
-### Dual-Frontend Maintenance Rule
+### Core Module Maintenance Rule
 
-Both frontends must stay in sync. When making changes:
+When modifying calculation logic:
 
-1. **Calculation logic** — Edit `core/` (root) first, then copy changes to `streamlit_app/core/`
-2. **New features** — Implement in both `streamlit_app/pages/` (Streamlit) and `src/app/` (Next.js)
-3. **API changes** — Update both `api/*.py` (Vercel) and the corresponding Streamlit page
+1. **Edit `core/` (root) first** — this is the authoritative source
+2. **Copy changes to `streamlit_app/core/`** — keep the synced copy up to date
+3. **Never edit `streamlit_app/core/` directly** — always edit root `core/` and copy
 
 ### Running Locally
 
 - **Streamlit:** `streamlit run streamlit_app/streamlit_app.py --server.headless true` → http://localhost:8501
-- **Next.js:** `npm run dev` → http://localhost:3000 (Python API routes require Vercel CLI or separate server)
 
 ### Deploying
 
 - **Streamlit Cloud:** Connect repo, set main file to `streamlit_app/streamlit_app.py`
-- **Vercel:** Import repo, auto-detects Next.js + Python functions
 
 ---
 
