@@ -9,7 +9,10 @@ import plotly.graph_objects as go
 
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from core.soil import SoilLayer, SoilProfile, SoilType, correct_N_overburden
+from core.soil import (
+    SoilLayer, SoilProfile, SoilType, PYModel, PY_MODEL_PARAMS,
+    correct_N_overburden, build_soil_layer_from_dict,
+)
 from core.frost import (
     FROST_DEPTH_TABLE, STEFAN_C,
     frost_depth_regional, frost_depth_stefan, frost_check,
@@ -54,6 +57,75 @@ with st.expander("Add New Layer", expanded=len(st.session_state.soil_layers) == 
         new_phi = st.number_input("Friction angle (deg, 0=auto)", min_value=0.0, value=0.0, step=1.0, format="%.0f", key="new_phi")
         new_cu = st.number_input("c_u (psf, 0=auto)", min_value=0.0, value=0.0, step=100.0, format="%.0f", key="new_cu")
 
+    # --- Advanced p-y model selection ---
+    with st.expander("Advanced: p-y Curve Model", expanded=False):
+        py_model_names = [m.value for m in PYModel]
+        new_py_model = st.selectbox(
+            "p-y Model", py_model_names, index=0, key="new_py_model",
+            help="Auto uses Matlock Soft Clay for clay/silt and API Sand for sand/gravel.",
+        )
+
+        # Show model-specific parameter fields
+        _sel_model = PYModel(new_py_model)
+        _needed = PY_MODEL_PARAMS.get(_sel_model, [])
+        # Filter to only extra params (gamma/phi/c_u already above)
+        _extra = [p for p in _needed if p not in ("gamma", "phi", "c_u")]
+
+        _PARAM_UI = {
+            "epsilon_50": ("epsilon_50 (strain)", 0.0, 0.0, 0.001, "%.4f",
+                           "Strain at 50% ultimate. 0 = auto from c_u."),
+            "J": ("J factor", 0.0, 0.5, 0.05, "%.2f",
+                  "Matlock J factor (0.25 shallow, 0.5 deep). 0 = auto."),
+            "k_py": ("k (lb/in^3)", 0.0, 0.0, 10.0, "%.0f",
+                     "Subgrade reaction modulus. 0 = auto from soil type."),
+            "q_u": ("q_u — UCS (psf)", 0.0, 0.0, 500.0, "%.0f",
+                    "Unconfined compressive strength of rock."),
+            "E_ir": ("E_ir — Initial rock modulus (psi)", 0.0, 0.0, 1000.0, "%.0f",
+                     "Initial modulus of rock mass."),
+            "RQD": ("RQD (%)", 0.0, 0.0, 5.0, "%.0f",
+                    "Rock Quality Designation."),
+            "k_rm": ("k_rm — Strain factor", 0.0, 0.0005, 0.0001, "%.4f",
+                     "Weak rock strain wedge factor."),
+            "sigma_ci": ("sigma_ci — Intact UCS (psi)", 0.0, 0.0, 500.0, "%.0f",
+                         "Intact rock uniaxial compressive strength (Hoek-Brown)."),
+            "m_i": ("m_i — Material index", 0.0, 10.0, 1.0, "%.0f",
+                    "Hoek-Brown material constant."),
+            "GSI": ("GSI", 0.0, 50.0, 5.0, "%.0f",
+                    "Geological Strength Index (0-100)."),
+            "E_rock": ("E_rock — Rock modulus (psi)", 0.0, 0.0, 1000.0, "%.0f",
+                       "Rock mass modulus (deformation)."),
+            "G_max": ("G_max — Max shear modulus (psi)", 0.0, 0.0, 1000.0, "%.0f",
+                      "Small-strain maximum shear modulus."),
+            "poissons_ratio": ("Poisson's ratio", 0.0, 0.3, 0.05, "%.2f",
+                               "Rock or soil Poisson's ratio."),
+            "void_ratio": ("Void ratio", 0.0, 0.6, 0.05, "%.2f",
+                           "Soil void ratio."),
+            "C_u_uniformity": ("C_u — Uniformity coeff", 0.0, 2.0, 0.5, "%.1f",
+                               "Coefficient of uniformity (D60/D10)."),
+        }
+
+        _adv_vals: dict = {}
+        if _extra:
+            # Exclude user_py_data from number inputs (handled separately)
+            _num_extra = [p for p in _extra if p != "user_py_data"]
+            if _num_extra:
+                cols_adv = st.columns(min(len(_num_extra), 3))
+                for idx, param_name in enumerate(_num_extra):
+                    ui = _PARAM_UI.get(param_name)
+                    if ui:
+                        label, mn, default, stp, fmt, hlp = ui
+                        with cols_adv[idx % len(cols_adv)]:
+                            _adv_vals[param_name] = st.number_input(
+                                label, min_value=mn, value=default, step=stp,
+                                format=fmt, key=f"new_{param_name}", help=hlp,
+                            )
+
+            if "user_py_data" in _extra:
+                st.info("User-input p-y curves can be defined after adding the layer "
+                        "(coming soon in a future update).")
+        elif _sel_model != PYModel.AUTO:
+            st.caption("This model uses standard soil parameters defined above.")
+
     if st.button("Add Layer", type="primary"):
         if new_bot <= new_top:
             st.error("Bottom depth must be greater than top depth.")
@@ -68,6 +140,13 @@ with st.expander("Add New Layer", expanded=len(st.session_state.soil_layers) == 
                 "phi": new_phi if new_phi > 0 else None,
                 "c_u": new_cu if new_cu > 0 else None,
             }
+            # Add p-y model if not Auto
+            if _sel_model != PYModel.AUTO:
+                layer_data["py_model"] = _sel_model.value
+            # Add non-zero advanced parameters
+            for _k, _v in _adv_vals.items():
+                if _v and _v > 0:
+                    layer_data[_k] = _v
             st.session_state.soil_layers.append(layer_data)
             st.success(f"Added layer: {new_desc or new_type} at {new_top}-{new_bot} ft")
             st.rerun()
@@ -77,18 +156,7 @@ if st.session_state.soil_layers:
     st.subheader("Current Layers")
 
     # Build SoilProfile for computed properties
-    layers_obj = []
-    for ld in st.session_state.soil_layers:
-        layers_obj.append(SoilLayer(
-            top_depth=ld["top_depth"],
-            thickness=ld["thickness"],
-            soil_type=SoilType(ld["soil_type"]),
-            description=ld.get("description", ""),
-            N_spt=ld.get("N_spt"),
-            gamma=ld.get("gamma"),
-            phi=ld.get("phi"),
-            c_u=ld.get("c_u"),
-        ))
+    layers_obj = [build_soil_layer_from_dict(ld) for ld in st.session_state.soil_layers]
     profile = SoilProfile(layers=layers_obj, water_table_depth=st.session_state.water_table_depth)
 
     # Table display
@@ -108,6 +176,7 @@ if st.session_state.soil_layers:
             "phi' (deg)": f"{lo.get_phi(sigma_v):.1f}" if lo.get_phi(sigma_v) > 0 else "-",
             "c_u (psf)": f"{lo.get_cu():.0f}" if lo.get_cu() > 0 else "-",
             "sigma'_v mid (psf)": f"{sigma_v:.0f}",
+            "p-y Model": ld.get("py_model", "Auto") or "Auto",
         })
 
     df = pd.DataFrame(table_data)

@@ -321,6 +321,351 @@ p = 0.72 * p_ult                           for y > 3 * y_50
 
 ---
 
+## 8a. Stiff Clay Without Free Water (Welch & Reese, 1975)
+
+Reference: Welch, R.C. and Reese, L.C. (1975)
+
+### Static Loading
+
+Power curve:
+```
+p = 0.5 * p_ult * (y / y_50)^0.25       for y <= 16 * y_50
+p = p_ult                                for y > 16 * y_50
+```
+
+Ultimate resistance uses Matlock formulation (Section 4).
+
+### Cyclic Loading
+
+Deflection expanded by cyclic degradation factor:
+```
+y_c = y_s + y_50 * 9.6 * (p / p_ult)^4 * log10(N)
+```
+
+---
+
+## 8b. Modified Stiff Clay (Brown, 2002)
+
+Same 0.25-power curve as Welch & Reese, but with a user-defined initial
+stiffness k providing a linear segment at small deflections:
+
+```
+p = k * z * y                            for y <= y_A (intersection)
+p = 0.5 * p_ult * (y / y_50)^0.25       for y_A < y <= 16 * y_50
+p = p_ult                                for y > 16 * y_50
+```
+
+---
+
+## 8c. Small-Strain Sand (Hanssen, 2015)
+
+Reference: LPile Technical Manual Section 3.4.4
+
+Hardin-Drnevich degradation overlay on API sand. Uses G_max (maximum
+shear modulus) to provide stiffer initial response at small deflections.
+
+### Degradation Model
+
+```
+G / G_max = 1 / (1 + |y / y_r|)
+```
+
+Reference deflection:
+```
+y_r = A * p_ult / (4 * G_max)
+```
+
+Small-strain resistance:
+```
+p_small = 4 * G_max * (G / G_max) * y
+```
+
+Final curve: `p = max(p_small, p_api)`, capped at `A * p_ult`.
+
+### G_max Estimation
+
+If not measured (e.g., from crosshole/SASW testing):
+```
+G_max = 1000 * K2 * (sigma_m')^0.5    (psi)
+K2 ~ 30 + 2 * (phi - 25)
+```
+
+---
+
+## 8d. Liquefied Sand (Rollins et al., 2005)
+
+Reference: Rollins, K.M. et al. (2005)
+
+Concave-upward empirical curve for fully liquefied sand:
+```
+p = P_d * A * (B_coeff * y)^C
+```
+
+Depth-dependent coefficients (z in meters, y in mm):
+```
+A = 3e-7 * (z + 1)^6.05
+B = 2.80 * (z + 1)^0.11
+C = 2.85 * (z + 1)^(-0.41)
+```
+
+Diameter correction P_d for pile diameter b (meters):
+```
+P_d = 1.0129 * (b / 0.3)              for b < 0.3 m
+P_d = 3.81 * ln(b) + 5.6              for 0.3 <= b <= 2.6 m
+P_d = 9.24                             for b > 2.6 m
+```
+
+Cap: 15 kN/m for 0.3 m reference pile.
+
+---
+
+## 8e. Liquefied Sand Hybrid (Franke & Rollins, 2013)
+
+Combines Rollins dilative curve with Matlock soft clay using
+the residual shear strength of the liquefied soil:
+
+```
+p_hybrid(y) = min(p_rollins(y), p_matlock_residual(y))
+```
+
+The Matlock residual curve uses:
+- c_u = residual undrained shear strength
+- epsilon_50 = 0.02
+- Cyclic = True
+
+---
+
+## 8f. Weak Rock (Reese, 1997)
+
+Reference: LPile Technical Manual Section 3.8.4
+
+Three-branch model for weak rock (q_ur < ~1000 psi):
+
+**Branch 1 (linear):**
+```
+p = M_ir * y                            for y <= y_A
+```
+
+**Branch 2 (power curve):**
+```
+p = (p_ur / 2) * (y / y_rm)^0.25       for y_A < y <= 16 * y_rm, p <= p_ur
+```
+
+**Branch 3 (ultimate):**
+```
+p = p_ur                                for y > 16 * y_rm
+```
+
+### Parameters
+
+Ultimate resistance:
+```
+p_ur = alpha_r * q_ur * b * (1 + 1.4 * x_r / b)    for x_r <= 3b
+p_ur = 5.2 * alpha_r * q_ur * b                     for x_r > 3b
+```
+
+Strength reduction factor (RQD-dependent):
+```
+alpha_r = 1 - (2/3) * (RQD / 100)
+```
+
+Initial modulus:
+```
+M_ir = k_ir * E_ir
+k_ir = 100 + 400 * x_r / (3b)     for x_r <= 3b
+k_ir = 500                         for x_r > 3b
+```
+
+Strain parameter and intersection point:
+```
+y_rm = epsilon_rm * b              (epsilon_rm ~ 0.0005)
+y_A = (p_ur / (2 * y_rm^0.25 * M_ir))^1.333
+```
+
+| Symbol | Description | Typical Range |
+|--------|-------------|---------------|
+| q_ur | Uniaxial compressive strength | 100 - 1000 psi |
+| E_ir | Initial rock mass modulus | 10,000 - 500,000 psi |
+| RQD | Rock Quality Designation | 0 - 100% |
+| epsilon_rm | Strain factor | 0.00005 - 0.0005 |
+
+---
+
+## 8g. Strong Rock — Vuggy Limestone
+
+Reference: LPile Technical Manual Section 3.8.3
+
+Bilinear p-y curve for strong rock (q_ur >= 1000 psi / 6.9 MPa):
+
+```
+p = 2000 * s_u * y                      for y <= 0.0004 * b
+p = p_1 + 100 * s_u * (y - 0.0004b)    for y > 0.0004 * b, p <= p_u
+```
+
+Where:
+```
+s_u = q_ur / 2     (shear strength = half UCS)
+p_u = b * s_u      (ultimate resistance)
+```
+
+Brittle fracture assumed if deflection exceeds 0.0004b.
+
+---
+
+## 8h. Massive Rock (Liang et al., 2009)
+
+Reference: LPile Technical Manual Section 3.9
+
+Hyperbolic p-y curve using Hoek-Brown strength criterion:
+
+```
+p = y / (1/K_i + y/p_u)
+```
+
+### Hoek-Brown Parameters
+
+```
+m_b = m_i * exp((GSI - 100) / (28 - 14*D_r))
+s = exp((GSI - 100) / (9 - 3*D_r))
+sigma_1 = sigma_3 + sigma_ci * (m_b * sigma_3/sigma_ci + s)^0.5
+```
+
+Mohr-Coulomb equivalent:
+```
+phi' = 90 - arcsin(2*tau / (sigma_1 - sigma_3))
+c' = tau - sigma_n * tan(phi')
+```
+
+Rock mass modulus:
+```
+E_m = E_i * exp(GSI / 21.7) / 100
+```
+
+| Rock Quality | sigma_ci (psi) | m_i | GSI |
+|-------------|---------------|-----|-----|
+| Good quality | 21,750 | 25 | 75 |
+| Average | 11,600 | 12 | 50 |
+| Very poor | 2,900 | 8 | 30 |
+
+---
+
+## 8i. Loess (Johnson et al., 2006)
+
+Reference: LPile Technical Manual Section 3.6
+
+Hyperbolic degradation model for loess soils using CPT data:
+
+### Ultimate Resistance
+
+```
+p_u0 = N_CPT * q_c              (N_CPT = 0.409)
+p_u = p_u0 * b / (1 + C_N * log|N|)    (C_N = 0.24)
+```
+
+Depth reduction: q_c reduced by 50% at surface, linearly increasing
+to full value at depth = 2 * b (passive wedge effect).
+
+### Secant Modulus Degradation
+
+```
+E_i = p_u / y_ref               (y_ref = 0.117 in)
+E_s = E_i / (1 + y'_h)
+y'_h = (y / y_ref) * [1 + 0.10 * exp(-y / y_ref)]
+p = E_s * y
+```
+
+---
+
+## 8j. Cemented c-phi Soil
+
+Reference: LPile Technical Manual Section 3.7
+
+Four-segment p-y curve for soils with both cohesion and friction.
+
+### Ultimate Resistance
+
+Frictional component (same as Reese sand):
+```
+p_u_phi = min(p_phi_s, p_phi_d)
+```
+
+Cohesive component:
+```
+p_cs = (3 + gamma'/c * x + J/b * x) * c * b       (J = 0.5)
+p_cd = 9 * c * b
+p_c = min(p_cs, p_cd)
+```
+
+### Curve Construction
+
+```
+y_u = 3b/80,    p_u = A * p_u_phi
+y_m = b/60,     p_m = B * p_u_phi + p_uc
+```
+
+**4 segments:** initial (p = kx * y), parabolic (p = S * y^(1/n)),
+straight line (p_m to p_u), residual (p = A * p_u_phi, frictional only).
+
+Initial stiffness:
+```
+k = k_c + k_phi    (cemented sand)
+k = k_phi           (non-cemented silt)
+```
+
+---
+
+## 8k. Piedmont Residual Soil (Simpson & Brown, 2006)
+
+Modified stiff clay approach for residual soils of the Piedmont
+geologic province:
+
+```
+p = 0.5 * p_ult * (y / y_50)^0.25    (with 0.85 reduction on p_ult)
+```
+
+Uses epsilon_50 = 0.007 (default for residual soils) and optional
+initial k stiffness.
+
+---
+
+## 8l. Elastic Subgrade
+
+Linear elastic p-y spring (no ultimate cap):
+
+```
+p = k * z * y
+```
+
+Useful for preliminary analysis or very stiff soils where nonlinear
+response is not expected within the working load range.
+
+---
+
+## 8m. Available p-y Models Summary
+
+| # | Model | Function | Curve Shape | Key Inputs |
+|---|-------|----------|-------------|------------|
+| 1 | Soft Clay (Matlock) | `py_matlock_soft_clay` | 1/3-power | c_u, epsilon_50, J |
+| 2 | API Soft Clay w/ User J | `py_api_soft_clay` | 1/3-power | c_u, epsilon_50, J |
+| 3 | Stiff Clay w/ Free Water | `py_stiff_clay_free_water` | 5-segment | c_u, epsilon_50, k |
+| 4 | Stiff Clay w/o Free Water | `py_stiff_clay_no_free_water` | 1/4-power | c_u, epsilon_50 |
+| 5 | Modified Stiff Clay | `py_mod_stiff_clay` | Linear + 1/4-power | c_u, epsilon_50, k |
+| 6 | Sand (Reese) | `py_reese_sand` | 4-point | phi, k |
+| 7 | API Sand | `py_api_sand` | tanh | phi |
+| 8 | Small-Strain Sand | `py_small_strain_sand` | Hardin-Drnevich + API | phi, G_max |
+| 9 | Liquefied Sand (Rollins) | `py_liquefied_sand_rollins` | Concave-up | depth only |
+| 10 | Liquefied Sand Hybrid | `py_liquefied_sand_hybrid` | min(Rollins, Matlock) | c_u_residual |
+| 11 | Weak Rock (Reese) | `py_weak_rock` | 3-branch | q_ur, E_ir, RQD |
+| 12 | Strong Rock (Vuggy) | `py_strong_rock` | Bilinear | q_ur |
+| 13 | Massive Rock | `py_massive_rock` | Hyperbolic | sigma_ci, m_i, GSI |
+| 14 | Piedmont Residual | `py_piedmont_residual` | Modified 1/4-power | c_u, epsilon_50 |
+| 15 | Loess | `py_loess` | Hyperbolic degrad. | q_c or c_u |
+| 16 | Cemented c-phi | `py_silt_cemented` | 4-segment | phi, c, k |
+| 17 | Elastic Subgrade | `py_elastic_subgrade` | Linear | k |
+| 18 | User-Input | (placeholder) | User-defined | y, p data |
+
+---
+
 ## 9. Broms Method — Simplified Lateral Capacity
 
 ### Short Pile in Cohesionless Soil (Free Head)

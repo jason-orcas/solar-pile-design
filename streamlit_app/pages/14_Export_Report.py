@@ -9,7 +9,7 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from core.pdf_export import generate_report, ReportData
 from core.sections import get_section
-from core.soil import SoilLayer, SoilProfile, SoilType
+from core.soil import SoilLayer, SoilProfile, SoilType, build_soil_layer_from_dict
 from core.loads import LoadInput
 
 st.header("Export PDF Report")
@@ -116,18 +116,7 @@ def build_report_data() -> ReportData:
     nominal_section = st.session_state.get("nominal_section") or section
 
     # Build SoilProfile
-    layers_obj = []
-    for ld in st.session_state.soil_layers:
-        layers_obj.append(SoilLayer(
-            top_depth=ld["top_depth"],
-            thickness=ld["thickness"],
-            soil_type=SoilType(ld["soil_type"]),
-            description=ld.get("description", ""),
-            N_spt=ld.get("N_spt"),
-            gamma=ld.get("gamma"),
-            phi=ld.get("phi"),
-            c_u=ld.get("c_u"),
-        ))
+    layers_obj = [build_soil_layer_from_dict(ld) for ld in st.session_state.soil_layers]
     profile = SoilProfile(
         layers=layers_obj,
         water_table_depth=st.session_state.get("water_table_depth"),

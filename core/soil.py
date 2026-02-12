@@ -17,6 +17,58 @@ class SoilType(str, Enum):
     ORGANIC = "Organic"
 
 
+class PYModel(str, Enum):
+    """LPile v2022 p-y curve model selection."""
+    AUTO = "Auto"
+    # Clay models
+    SOFT_CLAY_MATLOCK = "Soft Clay (Matlock)"
+    API_SOFT_CLAY_USER_J = "API Soft Clay w/ User J"
+    STIFF_CLAY_FREE_WATER = "Stiff Clay w/ Free Water (Reese)"
+    STIFF_CLAY_NO_FREE_WATER = "Stiff Clay w/o Free Water (Reese)"
+    MOD_STIFF_CLAY = "Modified Stiff Clay w/o Free Water"
+    # Sand models
+    SAND_REESE = "Sand (Reese)"
+    API_SAND = "API Sand (O'Neill)"
+    SMALL_STRAIN_SAND = "Small Strain Sand"
+    LIQUEFIED_SAND_ROLLINS = "Liquefied Sand (Rollins)"
+    LIQUEFIED_SAND_HYBRID = "Liquefied Sand Hybrid"
+    # Rock models
+    WEAK_ROCK = "Weak Rock (Reese)"
+    STRONG_ROCK = "Strong Rock (Vuggy)"
+    MASSIVE_ROCK = "Massive Rock"
+    # Special soils
+    PIEDMONT_RESIDUAL = "Piedmont Residual Soil"
+    LOESS = "Loess"
+    SILT_CEMENTED = "Silt (Cemented c-phi)"
+    ELASTIC_SUBGRADE = "Elastic Subgrade"
+    USER_INPUT = "User-Input p-y"
+
+
+# Required parameters for each p-y model (drives UI field visibility)
+PY_MODEL_PARAMS: dict[str, list[str]] = {
+    PYModel.AUTO: [],
+    PYModel.SOFT_CLAY_MATLOCK: ["gamma", "c_u", "epsilon_50"],
+    PYModel.API_SOFT_CLAY_USER_J: ["gamma", "c_u", "epsilon_50", "J"],
+    PYModel.STIFF_CLAY_FREE_WATER: ["gamma", "c_u", "epsilon_50", "k_py"],
+    PYModel.STIFF_CLAY_NO_FREE_WATER: ["gamma", "c_u", "epsilon_50"],
+    PYModel.MOD_STIFF_CLAY: ["gamma", "c_u", "epsilon_50"],
+    PYModel.SAND_REESE: ["gamma", "phi", "k_py"],
+    PYModel.API_SAND: ["gamma", "phi", "k_py"],
+    PYModel.SMALL_STRAIN_SAND: ["gamma", "phi", "k_py", "G_max", "poissons_ratio",
+                                 "void_ratio", "C_u_uniformity"],
+    PYModel.LIQUEFIED_SAND_ROLLINS: ["gamma", "phi"],
+    PYModel.LIQUEFIED_SAND_HYBRID: ["gamma", "phi"],
+    PYModel.WEAK_ROCK: ["gamma", "q_u", "E_ir", "RQD", "k_rm"],
+    PYModel.STRONG_ROCK: ["gamma", "q_u"],
+    PYModel.MASSIVE_ROCK: ["gamma", "sigma_ci", "m_i", "poissons_ratio", "GSI", "E_rock"],
+    PYModel.PIEDMONT_RESIDUAL: ["gamma", "c_u", "phi", "epsilon_50"],
+    PYModel.LOESS: ["gamma", "c_u", "epsilon_50"],
+    PYModel.SILT_CEMENTED: ["gamma", "c_u", "phi", "epsilon_50", "k_py"],
+    PYModel.ELASTIC_SUBGRADE: ["gamma", "k_py"],
+    PYModel.USER_INPUT: ["gamma", "user_py_data"],
+}
+
+
 GAMMA_WATER = 62.4  # pcf
 
 
@@ -45,6 +97,33 @@ class SoilLayer:
     C_B: float = 1.0                    # Borehole diameter correction
     C_R: float = 1.0                    # Rod length correction
     C_S: float = 1.0                    # Sampler correction
+
+    # Advanced p-y model selection (None or AUTO = auto-select by SoilType)
+    py_model: PYModel | None = None
+
+    # Model-specific parameter overrides
+    J: float | None = None               # Matlock J factor (0.25-0.5)
+    k_py: float | None = None            # Subgrade reaction modulus override (lb/in^3)
+    epsilon_50: float | None = None      # Explicit epsilon_50 override
+
+    # Rock parameters
+    q_u: float | None = None             # Unconfined compressive strength (psf)
+    E_ir: float | None = None            # Initial modulus of rock mass (psi)
+    RQD: float | None = None             # Rock Quality Designation (%)
+    k_rm: float | None = None            # Weak rock strain factor (dimensionless)
+    sigma_ci: float | None = None        # Intact rock UCS (psi, Hoek-Brown)
+    m_i: float | None = None             # Hoek-Brown material index
+    GSI: float | None = None             # Geological Strength Index (0-100)
+    E_rock: float | None = None          # Rock mass modulus (psi)
+
+    # Small strain sand parameters
+    G_max: float | None = None           # Maximum shear modulus (psi)
+    poissons_ratio: float | None = None  # Poisson's ratio
+    void_ratio: float | None = None      # Void ratio
+    C_u_uniformity: float | None = None  # Coefficient of uniformity (D60/D10)
+
+    # User-input p-y curve data
+    user_py_data: list | None = None     # [{"y": [...], "p": [...], "depth_ft": ...}, ...]
 
     @property
     def bottom_depth(self) -> float:
@@ -121,8 +200,21 @@ class SoilLayer:
         # Terzaghi & Peck: c_u ≈ 125 * N_60 (psf)
         return 125.0 * n
 
+    @property
+    def effective_py_model(self) -> PYModel:
+        """Resolve the actual p-y model (handles AUTO / None)."""
+        if self.py_model is not None and self.py_model != PYModel.AUTO:
+            return self.py_model
+        # Auto-select based on SoilType (existing behavior)
+        if self.soil_type in (SoilType.CLAY, SoilType.SILT, SoilType.ORGANIC):
+            return PYModel.SOFT_CLAY_MATLOCK
+        else:
+            return PYModel.API_SAND
+
     def get_epsilon_50(self) -> float:
         """Strain at 50% of ultimate stress for p-y curves."""
+        if self.epsilon_50 is not None:
+            return self.epsilon_50
         cu = self.get_cu()
         if cu < 500:
             return 0.020
@@ -137,6 +229,8 @@ class SoilLayer:
 
     def get_k_h(self) -> float:
         """Horizontal subgrade reaction modulus (lb/in^3) for p-y curves."""
+        if self.k_py is not None:
+            return self.k_py
         if self.soil_type in (SoilType.SAND, SoilType.GRAVEL):
             phi = self.get_phi()
             if phi <= 25:
@@ -281,6 +375,47 @@ class SoilProfile:
                 "sigma_v_total": self.total_stress_at(d),
             })
         return nodes
+
+
+# --- Soil Layer Construction Helper ---
+
+def build_soil_layer_from_dict(ld: dict) -> SoilLayer:
+    """Build a SoilLayer from a session-state dict.
+
+    Handles backward compatibility: missing keys default to None.
+    Used by all Streamlit pages to avoid duplicating construction logic.
+    """
+    _py_model_val = ld.get("py_model")
+    _py_model = PYModel(_py_model_val) if _py_model_val else None
+
+    return SoilLayer(
+        top_depth=ld["top_depth"],
+        thickness=ld["thickness"],
+        soil_type=SoilType(ld["soil_type"]),
+        description=ld.get("description", ""),
+        N_spt=ld.get("N_spt"),
+        gamma=ld.get("gamma"),
+        phi=ld.get("phi"),
+        c_u=ld.get("c_u"),
+        cohesion=ld.get("cohesion"),
+        py_model=_py_model,
+        J=ld.get("J"),
+        k_py=ld.get("k_py"),
+        epsilon_50=ld.get("epsilon_50"),
+        q_u=ld.get("q_u"),
+        E_ir=ld.get("E_ir"),
+        RQD=ld.get("RQD"),
+        k_rm=ld.get("k_rm"),
+        sigma_ci=ld.get("sigma_ci"),
+        m_i=ld.get("m_i"),
+        GSI=ld.get("GSI"),
+        E_rock=ld.get("E_rock"),
+        G_max=ld.get("G_max"),
+        poissons_ratio=ld.get("poissons_ratio"),
+        void_ratio=ld.get("void_ratio"),
+        C_u_uniformity=ld.get("C_u_uniformity"),
+        user_py_data=ld.get("user_py_data"),
+    )
 
 
 # --- SPT Correction Utilities ---

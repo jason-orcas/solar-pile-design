@@ -645,13 +645,21 @@ def _render_soil_profile(pdf: PileReportPDF, data: ReportData):
         pdf.card_end()
         pdf.ln(2)
 
+    # Check if any layer uses a non-Auto p-y model
+    _has_py_model = any(ld.get("py_model") for ld in data.soil_layers_raw)
+
     headers = ["Soil Name", "Layer Start", "Layer End", "Gamma",
                "Phi", "Cu", "N_spt"]
+    col_widths = [35, 22, 22, 20, 18, 20, 18]
+    if _has_py_model:
+        headers.append("p-y Model")
+        col_widths = [30, 18, 18, 16, 14, 16, 14, 30]
+
     rows = []
     for ld in data.soil_layers_raw:
         top = ld.get("top_depth", 0)
         bot = top + ld.get("thickness", 0)
-        rows.append([
+        row = [
             ld.get("description") or ld.get("soil_type", "-"),
             f"{top:.1f}",
             f"{bot:.1f}",
@@ -659,10 +667,13 @@ def _render_soil_profile(pdf: PileReportPDF, data: ReportData):
             f"{ld['phi']:.0f}" if ld.get("phi") else "-",
             f"{ld['c_u']:.0f}" if ld.get("c_u") else "-",
             str(ld.get("N_spt", "-")),
-        ])
+        ]
+        if _has_py_model:
+            row.append(ld.get("py_model", "Auto") or "Auto")
+        rows.append(row)
 
     pdf.card_start()
-    pdf.styled_table(headers, rows, col_widths=[35, 22, 22, 20, 18, 20, 18])
+    pdf.styled_table(headers, rows, col_widths=col_widths)
     pdf.card_end()
 
     pdf.ln(5)

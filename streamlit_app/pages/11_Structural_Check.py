@@ -39,7 +39,7 @@ with col2:
 # Compute depth of fixity from top soil layer
 D_f = 5.0  # default
 if st.session_state.get("soil_layers"):
-    from core.soil import SoilLayer, SoilType
+    from core.soil import SoilLayer, SoilType, build_soil_layer_from_dict
     top = st.session_state.soil_layers[0]
     soil_type_val = top.get("soil_type", "Sand")
     if isinstance(soil_type_val, str):
@@ -49,12 +49,7 @@ if st.session_state.get("soil_layers"):
 
     axis = st.session_state.get("bending_axis", "strong")
     EI = section.EI_strong if axis == "strong" else section.EI_weak
-    layer_obj = SoilLayer(
-        top_depth=top["top_depth"], thickness=top["thickness"],
-        soil_type=SoilType(top["soil_type"]),
-        N_spt=top.get("N_spt"), gamma=top.get("gamma"),
-        phi=top.get("phi"), c_u=top.get("c_u"),
-    )
+    layer_obj = build_soil_layer_from_dict(top)
     if is_sand:
         k_h = layer_obj.get_k_h()
         D_f = depth_of_fixity(EI, "sand", n_h=k_h)

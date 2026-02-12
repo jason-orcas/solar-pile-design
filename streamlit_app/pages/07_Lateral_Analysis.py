@@ -10,7 +10,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from core.soil import SoilLayer, SoilProfile, SoilType
+from core.soil import SoilLayer, SoilProfile, SoilType, build_soil_layer_from_dict
 from core.sections import get_section
 from core.lateral import solve_lateral, broms_cohesionless, broms_cohesive, generate_py_curve, minimum_embedment_broms
 
@@ -22,18 +22,7 @@ if not st.session_state.get("soil_layers"):
     st.stop()
 
 # --- Build profile ---
-layers_obj = []
-for ld in st.session_state.soil_layers:
-    layers_obj.append(SoilLayer(
-        top_depth=ld["top_depth"],
-        thickness=ld["thickness"],
-        soil_type=SoilType(ld["soil_type"]),
-        description=ld.get("description", ""),
-        N_spt=ld.get("N_spt"),
-        gamma=ld.get("gamma"),
-        phi=ld.get("phi"),
-        c_u=ld.get("c_u"),
-    ))
+layers_obj = [build_soil_layer_from_dict(ld) for ld in st.session_state.soil_layers]
 profile = SoilProfile(layers=layers_obj, water_table_depth=st.session_state.water_table_depth)
 
 # --- Pile ---
