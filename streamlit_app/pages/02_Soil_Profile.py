@@ -43,26 +43,36 @@ if "soil_layers" not in st.session_state or not st.session_state.soil_layers:
 
 # Add layer form
 with st.expander("Add New Layer", expanded=len(st.session_state.soil_layers) == 0):
-    c1, c2, c3, c4 = st.columns([2, 3, 2, 2])
-    with c1:
+    # Row 1: Depths + Soil classification
+    r1a, r1b, r1c = st.columns([1, 1, 2])
+    with r1a:
         new_top = st.number_input("Top Depth (ft)", min_value=0.0, value=0.0, step=0.5, format="%.1f", key="new_top")
+    with r1b:
         new_bot = st.number_input("Bottom Depth (ft)", min_value=0.5, value=5.0, step=0.5, format="%.1f", key="new_bot")
-    with c2:
+    with r1c:
         new_type = st.selectbox("Soil Type", [t.value for t in SoilType], key="new_type")
+
+    # Row 2: p-y model (full width) + description
+    r2a, r2b = st.columns(2)
+    with r2a:
         py_model_names = [m.value for m in PYModel]
         new_py_model = st.selectbox(
             "p-y Curve Model", py_model_names, index=0, key="new_py_model",
             help="Auto uses Matlock Soft Clay for clay/silt and API Sand for sand/gravel.",
         )
-    with c3:
-        new_N = st.number_input("SPT N-value (raw)", min_value=0, value=15, step=1, key="new_N")
-        new_gamma = st.number_input("Unit weight (pcf, 0=auto)", min_value=0.0, value=0.0, step=5.0, format="%.0f", key="new_gamma")
-    with c4:
-        new_phi = st.number_input("Friction angle (deg, 0=auto)", min_value=0.0, value=0.0, step=1.0, format="%.0f", key="new_phi")
-        new_cu = st.number_input("c_u (psf, 0=auto)", min_value=0.0, value=0.0, step=100.0, format="%.0f", key="new_cu")
+    with r2b:
+        new_desc = st.text_input("Description", value="", key="new_desc", placeholder="e.g., Brown silty sand")
 
-    # Description row
-    new_desc = st.text_input("Description", value="", key="new_desc", placeholder="e.g., Brown silty sand")
+    # Row 3: Soil parameters
+    r3a, r3b, r3c, r3d = st.columns(4)
+    with r3a:
+        new_N = st.number_input("SPT N-value", min_value=0, value=15, step=1, key="new_N")
+    with r3b:
+        new_gamma = st.number_input("gamma (pcf)", min_value=0.0, value=0.0, step=5.0, format="%.0f", key="new_gamma", help="Unit weight. 0 = auto from soil type.")
+    with r3c:
+        new_phi = st.number_input("phi (deg)", min_value=0.0, value=0.0, step=1.0, format="%.0f", key="new_phi", help="Friction angle. 0 = auto from N-value.")
+    with r3d:
+        new_cu = st.number_input("c_u (psf)", min_value=0.0, value=0.0, step=100.0, format="%.0f", key="new_cu", help="Undrained shear strength. 0 = auto from N-value.")
 
     # --- Model-specific parameters (shown when non-Auto model selected) ---
     _sel_model = PYModel(new_py_model)
