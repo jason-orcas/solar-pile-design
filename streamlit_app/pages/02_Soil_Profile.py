@@ -49,7 +49,11 @@ with st.expander("Add New Layer", expanded=len(st.session_state.soil_layers) == 
         new_bot = st.number_input("Bottom Depth (ft)", min_value=0.5, value=5.0, step=0.5, format="%.1f", key="new_bot")
     with c2:
         new_type = st.selectbox("Soil Type", [t.value for t in SoilType], key="new_type")
-        new_desc = st.text_input("Description", value="", key="new_desc", placeholder="e.g., Brown silty sand")
+        py_model_names = [m.value for m in PYModel]
+        new_py_model = st.selectbox(
+            "p-y Curve Model", py_model_names, index=0, key="new_py_model",
+            help="Auto uses Matlock Soft Clay for clay/silt and API Sand for sand/gravel.",
+        )
     with c3:
         new_N = st.number_input("SPT N-value (raw)", min_value=0, value=15, step=1, key="new_N")
         new_gamma = st.number_input("Unit weight (pcf, 0=auto)", min_value=0.0, value=0.0, step=5.0, format="%.0f", key="new_gamma")
@@ -57,74 +61,70 @@ with st.expander("Add New Layer", expanded=len(st.session_state.soil_layers) == 
         new_phi = st.number_input("Friction angle (deg, 0=auto)", min_value=0.0, value=0.0, step=1.0, format="%.0f", key="new_phi")
         new_cu = st.number_input("c_u (psf, 0=auto)", min_value=0.0, value=0.0, step=100.0, format="%.0f", key="new_cu")
 
-    # --- Advanced p-y model selection ---
-    with st.expander("Advanced: p-y Curve Model", expanded=False):
-        py_model_names = [m.value for m in PYModel]
-        new_py_model = st.selectbox(
-            "p-y Model", py_model_names, index=0, key="new_py_model",
-            help="Auto uses Matlock Soft Clay for clay/silt and API Sand for sand/gravel.",
-        )
+    # Description row
+    new_desc = st.text_input("Description", value="", key="new_desc", placeholder="e.g., Brown silty sand")
 
-        # Show model-specific parameter fields
-        _sel_model = PYModel(new_py_model)
-        _needed = PY_MODEL_PARAMS.get(_sel_model, [])
-        # Filter to only extra params (gamma/phi/c_u already above)
-        _extra = [p for p in _needed if p not in ("gamma", "phi", "c_u")]
+    # --- Model-specific parameters (shown when non-Auto model selected) ---
+    _sel_model = PYModel(new_py_model)
+    _needed = PY_MODEL_PARAMS.get(_sel_model, [])
+    # Filter to only extra params (gamma/phi/c_u already above)
+    _extra = [p for p in _needed if p not in ("gamma", "phi", "c_u")]
 
-        _PARAM_UI = {
-            "epsilon_50": ("epsilon_50 (strain)", 0.0, 0.0, 0.001, "%.4f",
-                           "Strain at 50% ultimate. 0 = auto from c_u."),
-            "J": ("J factor", 0.0, 0.5, 0.05, "%.2f",
-                  "Matlock J factor (0.25 shallow, 0.5 deep). 0 = auto."),
-            "k_py": ("k (lb/in^3)", 0.0, 0.0, 10.0, "%.0f",
-                     "Subgrade reaction modulus. 0 = auto from soil type."),
-            "q_u": ("q_u — UCS (psf)", 0.0, 0.0, 500.0, "%.0f",
-                    "Unconfined compressive strength of rock."),
-            "E_ir": ("E_ir — Initial rock modulus (psi)", 0.0, 0.0, 1000.0, "%.0f",
-                     "Initial modulus of rock mass."),
-            "RQD": ("RQD (%)", 0.0, 0.0, 5.0, "%.0f",
-                    "Rock Quality Designation."),
-            "k_rm": ("k_rm — Strain factor", 0.0, 0.0005, 0.0001, "%.4f",
-                     "Weak rock strain wedge factor."),
-            "sigma_ci": ("sigma_ci — Intact UCS (psi)", 0.0, 0.0, 500.0, "%.0f",
-                         "Intact rock uniaxial compressive strength (Hoek-Brown)."),
-            "m_i": ("m_i — Material index", 0.0, 10.0, 1.0, "%.0f",
-                    "Hoek-Brown material constant."),
-            "GSI": ("GSI", 0.0, 50.0, 5.0, "%.0f",
-                    "Geological Strength Index (0-100)."),
-            "E_rock": ("E_rock — Rock modulus (psi)", 0.0, 0.0, 1000.0, "%.0f",
-                       "Rock mass modulus (deformation)."),
-            "G_max": ("G_max — Max shear modulus (psi)", 0.0, 0.0, 1000.0, "%.0f",
-                      "Small-strain maximum shear modulus."),
-            "poissons_ratio": ("Poisson's ratio", 0.0, 0.3, 0.05, "%.2f",
-                               "Rock or soil Poisson's ratio."),
-            "void_ratio": ("Void ratio", 0.0, 0.6, 0.05, "%.2f",
-                           "Soil void ratio."),
-            "C_u_uniformity": ("C_u — Uniformity coeff", 0.0, 2.0, 0.5, "%.1f",
-                               "Coefficient of uniformity (D60/D10)."),
-        }
+    _PARAM_UI = {
+        "epsilon_50": ("epsilon_50 (strain)", 0.0, 0.0, 0.001, "%.4f",
+                       "Strain at 50% ultimate. 0 = auto from c_u."),
+        "J": ("J factor", 0.0, 0.5, 0.05, "%.2f",
+              "Matlock J factor (0.25 shallow, 0.5 deep). 0 = auto."),
+        "k_py": ("k (lb/in^3)", 0.0, 0.0, 10.0, "%.0f",
+                 "Subgrade reaction modulus. 0 = auto from soil type."),
+        "q_u": ("q_u — UCS (psf)", 0.0, 0.0, 500.0, "%.0f",
+                "Unconfined compressive strength of rock."),
+        "E_ir": ("E_ir — Initial rock modulus (psi)", 0.0, 0.0, 1000.0, "%.0f",
+                 "Initial modulus of rock mass."),
+        "RQD": ("RQD (%)", 0.0, 0.0, 5.0, "%.0f",
+                "Rock Quality Designation."),
+        "k_rm": ("k_rm — Strain factor", 0.0, 0.0005, 0.0001, "%.4f",
+                 "Weak rock strain wedge factor."),
+        "sigma_ci": ("sigma_ci — Intact UCS (psi)", 0.0, 0.0, 500.0, "%.0f",
+                     "Intact rock uniaxial compressive strength (Hoek-Brown)."),
+        "m_i": ("m_i — Material index", 0.0, 10.0, 1.0, "%.0f",
+                "Hoek-Brown material constant."),
+        "GSI": ("GSI", 0.0, 50.0, 5.0, "%.0f",
+                "Geological Strength Index (0-100)."),
+        "E_rock": ("E_rock — Rock modulus (psi)", 0.0, 0.0, 1000.0, "%.0f",
+                   "Rock mass modulus (deformation)."),
+        "G_max": ("G_max — Max shear modulus (psi)", 0.0, 0.0, 1000.0, "%.0f",
+                  "Small-strain maximum shear modulus."),
+        "poissons_ratio": ("Poisson's ratio", 0.0, 0.3, 0.05, "%.2f",
+                           "Rock or soil Poisson's ratio."),
+        "void_ratio": ("Void ratio", 0.0, 0.6, 0.05, "%.2f",
+                       "Soil void ratio."),
+        "C_u_uniformity": ("C_u — Uniformity coeff", 0.0, 2.0, 0.5, "%.1f",
+                           "Coefficient of uniformity (D60/D10)."),
+    }
 
-        _adv_vals: dict = {}
-        if _extra:
-            # Exclude user_py_data from number inputs (handled separately)
-            _num_extra = [p for p in _extra if p != "user_py_data"]
-            if _num_extra:
-                cols_adv = st.columns(min(len(_num_extra), 3))
-                for idx, param_name in enumerate(_num_extra):
-                    ui = _PARAM_UI.get(param_name)
-                    if ui:
-                        label, mn, default, stp, fmt, hlp = ui
-                        with cols_adv[idx % len(cols_adv)]:
-                            _adv_vals[param_name] = st.number_input(
-                                label, min_value=mn, value=default, step=stp,
-                                format=fmt, key=f"new_{param_name}", help=hlp,
-                            )
+    _adv_vals: dict = {}
+    if _extra:
+        # Exclude user_py_data from number inputs (handled separately)
+        _num_extra = [p for p in _extra if p != "user_py_data"]
+        if _num_extra:
+            st.caption("Model-specific parameters:")
+            cols_adv = st.columns(min(len(_num_extra), 3))
+            for idx, param_name in enumerate(_num_extra):
+                ui = _PARAM_UI.get(param_name)
+                if ui:
+                    label, mn, default, stp, fmt, hlp = ui
+                    with cols_adv[idx % len(cols_adv)]:
+                        _adv_vals[param_name] = st.number_input(
+                            label, min_value=mn, value=default, step=stp,
+                            format=fmt, key=f"new_{param_name}", help=hlp,
+                        )
 
-            if "user_py_data" in _extra:
-                st.info("User-input p-y curves can be defined after adding the layer "
-                        "(coming soon in a future update).")
-        elif _sel_model != PYModel.AUTO:
-            st.caption("This model uses standard soil parameters defined above.")
+        if "user_py_data" in _extra:
+            st.info("User-input p-y curves can be defined after adding the layer "
+                    "(coming soon in a future update).")
+    elif _sel_model != PYModel.AUTO:
+        st.caption("This model uses standard soil parameters defined above.")
 
     if st.button("Add Layer", type="primary"):
         if new_bot <= new_top:
