@@ -43,7 +43,7 @@ if "soil_layers" not in st.session_state or not st.session_state.soil_layers:
 
 # Add layer form
 with st.expander("Add New Layer", expanded=len(st.session_state.soil_layers) == 0):
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4 = st.columns([2, 3, 2, 2])
     with c1:
         new_top = st.number_input("Top Depth (ft)", min_value=0.0, value=0.0, step=0.5, format="%.1f", key="new_top")
         new_bot = st.number_input("Bottom Depth (ft)", min_value=0.5, value=5.0, step=0.5, format="%.1f", key="new_bot")
