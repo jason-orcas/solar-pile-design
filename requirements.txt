@@ -16,5 +16,8 @@ kaleido>=0.2.1
 pypdf>=3.0.0
 openpyxl>=3.1.0
 
+# DOCX manual generation
+python-docx>=1.0.0
+
 # Optional: OpenSeesPy for advanced BNWF analysis (not available on Vercel)
 # openseespy>=3.5.0

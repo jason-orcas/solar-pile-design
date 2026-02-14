@@ -1,27 +1,18 @@
-# Solar Pile Design Tool
+# SPORK — Solar Pile Optimization & Report Kit
 
-A professional-grade foundation analysis application for utility-scale solar pile design. Performs axial capacity, lateral load (p-y curve), and pile group analysis using established geotechnical engineering methods.
+A professional-grade foundation analysis application for utility-scale solar pile design. Performs axial capacity, lateral load (p-y curve), pile group, FEM, structural, and liquefaction analyses using established geotechnical and structural engineering methods.
 
-**Two frontends** are maintained in parallel—choose whichever fits your deployment:
-
-| Frontend | Stack | Best For |
-|----------|-------|----------|
-| **Streamlit** | Python + Plotly | Local use, quick sharing via Streamlit Cloud |
-| **Next.js** | React + Recharts + Vercel Python Functions | Production web deployment on Vercel |
-
-Both frontends share the same Python calculation engine (`core/`).
+Built with **Streamlit** (Python + Plotly). A legacy Next.js frontend exists but is not actively maintained.
 
 ---
 
 ## Table of Contents
 
 - [Features](#features)
-- [Architecture](#architecture)
-- [Quick Start — Streamlit](#quick-start--streamlit)
-- [Quick Start — Next.js / Vercel](#quick-start--nextjs--vercel)
+- [Quick Start](#quick-start)
 - [Project Structure](#project-structure)
-- [Shared Calculation Engine](#shared-calculation-engine)
-- [API Reference (Vercel)](#api-reference-vercel)
+- [Streamlit Pages](#streamlit-pages)
+- [Calculation Engine](#calculation-engine)
 - [Deployment](#deployment)
 - [Engineering Methodology](#engineering-methodology)
 - [References](#references)
@@ -31,69 +22,24 @@ Both frontends share the same Python calculation engine (`core/`).
 
 ## Features
 
-- **Project Setup** — Create, export, and import projects as JSON
-- **Soil Profile Builder** — Define layered soil profiles with SPT N-values, unit weights, friction angles, cohesion; auto-correlates missing parameters
-- **Pile Property Selection** — AISC W-shape and C-shape sections with full section properties; configurable embedment, installation method, head condition, and bending axis
-- **ASCE 7-22 Load Combinations** — Automatic LRFD and ASD combination generation from dead, live, snow, wind, and seismic inputs
-- **Axial Capacity Analysis** — Alpha (API RP 2A), Beta (effective stress), Meyerhof, and Nordlund methods; helical pile torque correlation; LRFD/ASD factored results
-- **Lateral Load Analysis** — Nonlinear p-y curve generation (Matlock soft clay, Reese sand, API RP 2A) with finite difference method solver; deflection, moment, and shear profiles
-- **Pile Group Analysis** — Converse-Labarre efficiency, AASHTO/FHWA p-multipliers, block failure check, plan-view layout diagram
-- **BNWF Finite Element Analysis** — Beam-on-nonlinear-Winkler-foundation model with combined axial+lateral loading, pushover curves, and buckling analysis
-- **PDF Report Export** — Professional SPile+-style PDF reports with section properties diagram, soil profile tables, depth profile plots, load combinations, and analysis summaries (fpdf2 + kaleido)
+- **Project Setup** — Create, export, and import projects as JSON; TOPL file import (ATI, Nevados, Nextracker)
+- **Soil Profile Builder** — Layered soil profiles with SPT N-values, unit weights, friction angles, cohesion; per-layer p-y model selection from 18 LPile v2022 models; auto-correlates missing parameters from N-values
+- **Pile Property Selection** — AISC W-shape and C-shape sections with full section properties; configurable embedment, installation method, head condition, bending axis; corrosion allowance analysis
+- **ASCE 7-22 Load Combinations** — Automatic LRFD and ASD combination generation from dead, live, snow, wind, and seismic inputs; built-in wind/seismic/snow calculators
+- **Pile Optimization** — Section family sweep across embedment ranges with automatic pass/fail checks
+- **Axial Capacity Analysis** — Alpha (API RP 2A), Beta (effective stress), and Meyerhof methods; LRFD/ASD factored results with capacity vs. depth profiles
+- **Lateral Load Analysis** — Nonlinear p-y curve generation (18 LPile v2022 models) with finite difference method solver; Broms simplified check; service deflection check; minimum embedment for lateral stability
+- **Pile Group Analysis** — Converse-Labarre efficiency, AASHTO/FHWA p-multipliers, block failure check
+- **BNWF Finite Element Analysis** — Beam-on-nonlinear-Winkler-foundation model with t-z/q-z axial springs, pushover curves, eigenvalue analysis, and pile head stiffness matrix
+- **AISC 360-22 Structural Check** — H1-1 combined axial + bending interaction with depth of fixity and interaction diagrams
+- **Liquefaction Screening** — Boulanger & Idriss (2014) SPT-based simplified procedure with CSR/CRR and factor of safety profiles
+- **Installation QC** — Dynamic driving formulas (ENR, Gates, FHWA Modified Gates) for driven piles; torque correlation for helical piles
+- **Frost Depth Check** — IBC 1809.5 compliance, Stefan equation, regional lookup
+- **PDF Report Export** — Professional multi-section PDF report with section properties, soil profiles, depth profile plots, load combinations, and analysis summaries (fpdf2 + kaleido)
 
 ---
 
-## Architecture
-
-```
-Solar_Pile_Design/
-│
-├── core/                  ← Shared Python calculation engine (root)
-│   ├── soil.py            ← Soil model, SPT correlations, effective stress
-│   ├── sections.py        ← Steel section database (AISC properties)
-│   ├── axial.py           ← Axial capacity methods
-│   ├── lateral.py         ← p-y curves + FDM solver
-│   ├── group.py           ← Group efficiency + block failure
-│   ├── bnwf.py            ← BNWF finite element analysis
-│   ├── loads.py           ← ASCE 7-22 load combinations
-│   └── pdf_export.py      ← SPile+-style PDF report generation
-│
-├── streamlit_app/         ← Streamlit frontend
-│   ├── streamlit_app.py   ← Entry point
-│   ├── pages/             ← 9 Streamlit pages (01–09)
-│   ├── core/              ← Local copy of calculation engine
-│   └── projects/          ← Saved project JSON files
-│
-├── src/                   ← Next.js frontend
-│   ├── app/               ← App Router pages (7 routes)
-│   ├── components/        ← ProjectProvider (React context)
-│   └── lib/               ← api.ts (TypeScript API client)
-│
-├── api/                   ← Vercel Python serverless functions
-│   ├── axial.py           ← POST /api/axial
-│   ├── lateral.py         ← POST /api/lateral
-│   ├── group.py           ← POST /api/group
-│   └── loads.py           ← POST /api/loads
-│
-├── references/            ← Engineering formula reference library
-│   ├── axial_capacity_formulas.md
-│   ├── lateral_load_py_curves.md
-│   ├── soil_parameter_correlations.md
-│   ├── pile_group_efficiency.md
-│   └── load_combinations.md
-│
-├── requirements.txt       ← Python dependencies (Streamlit + core)
-├── package.json           ← Node dependencies (Next.js frontend)
-├── vercel.json            ← Vercel deployment config
-├── next.config.mjs        ← Next.js configuration
-├── tailwind.config.ts     ← Tailwind CSS configuration
-├── tsconfig.json          ← TypeScript configuration
-└── CLAUDE.md              ← Claude Code agent instructions
-```
-
----
-
-## Quick Start — Streamlit
+## Quick Start
 
 ### Prerequisites
 
@@ -118,177 +64,144 @@ The app opens at **http://localhost:8501**. Use the sidebar to navigate through 
 
 ---
 
-## Quick Start — Next.js / Vercel
+## Project Structure
 
-### Prerequisites
-
-- Node.js 18+
-- npm
-- Python 3.10+ (for local API function testing)
-
-### Install & Run
-
-```bash
-# Clone the repository
-git clone https://github.com/jason-orcas/solar-pile-design.git
-cd solar-pile-design
-
-# Install Node dependencies
-npm install
-
-# Install Python dependencies (for API functions)
-pip install -r requirements.txt
-
-# Start the Next.js dev server
-npm run dev
 ```
-
-The app opens at **http://localhost:3000**. Analysis pages call the Python API routes under `/api/`.
-
-> **Note:** In local development, the Python API routes require the Vercel CLI (`vercel dev`) or a separate Python server. For full local testing, use the Streamlit frontend. For production, deploy to Vercel.
+Solar_Pile_Design/
+├── core/                        ← Shared Python calculation engine (authoritative source)
+│   ├── soil.py                  ← SoilLayer, SoilProfile, SoilType, p-y curves (18 models)
+│   ├── sections.py              ← SteelSection database, families, corrosion analysis
+│   ├── loads.py                 ← LoadInput, LRFD/ASD load combinations (ASCE 7-22)
+│   ├── axial.py                 ← Axial capacity (alpha, beta, Meyerhof methods)
+│   ├── lateral.py               ← Lateral FDM p-y solver, Broms, min embedment
+│   ├── group.py                 ← Pile group efficiency and block failure
+│   ├── bnwf.py                  ← Beam-on-Nonlinear-Winkler-Foundation (FEM)
+│   ├── tz_qz.py                 ← t-z / q-z axial spring curves
+│   ├── optimization.py          ← Section x embedment sweep optimizer
+│   ├── structural.py            ← AISC 360-22 structural check (H1-1 interaction)
+│   ├── frost.py                 ← Frost depth check (IBC 1809.5, Stefan equation)
+│   ├── liquefaction.py          ← Liquefaction screening (Boulanger & Idriss 2014)
+│   ├── installation.py          ← Installation QC (ENR, Gates, FHWA; helical torque)
+│   ├── topl_parser.py           ← TOPL file parser (ATI, Nevados, Nextracker)
+│   ├── pdf_export.py            ← PDF report generation (fpdf2, 20+ sections)
+│   └── bnwf_opensees.py         ← OpenSeesPy BNWF solver (optional)
+│
+├── streamlit_app/               ← Streamlit frontend
+│   ├── streamlit_app.py         ← Landing page
+│   ├── assets/                  ← Static assets (logo)
+│   ├── core/                    ← Synced copy of calculation engine
+│   └── pages/                   ← 13 Streamlit pages (01–14)
+│
+├── docs/                        ← Documentation
+│   ├── SPORK_User_Manual.md     ← User manual (markdown source)
+│   ├── SPORK_User_Manual.docx   ← User manual (Word format)
+│   └── build_manual_docx.py     ← Markdown → DOCX conversion script
+│
+├── references/                  ← Engineering formula reference library (5 files)
+│   ├── axial_capacity_formulas.md
+│   ├── lateral_load_py_curves.md
+│   ├── soil_parameter_correlations.md
+│   ├── pile_group_efficiency.md
+│   └── load_combinations.md
+│
+├── src/                         ← Next.js frontend (legacy, not actively maintained)
+├── api/                         ← Vercel Python serverless functions (legacy)
+├── requirements.txt             ← Python dependencies
+└── CLAUDE.md                    ← Claude Code agent instructions
+```
 
 ---
 
-## Project Structure
-
-### Streamlit Pages
+## Streamlit Pages
 
 | Page | File | Description |
 |------|------|-------------|
-| Project Setup | `streamlit_app/pages/01_Project_Setup.py` | Create/load/save projects |
-| Soil Profile | `streamlit_app/pages/02_Soil_Profile.py` | Define soil layers, water table |
-| Pile Properties | `streamlit_app/pages/03_Pile_Properties.py` | Select steel section, embedment |
-| Loading | `streamlit_app/pages/04_Loading.py` | Enter loads, generate combinations |
-| Axial Capacity | `streamlit_app/pages/05_Axial_Capacity.py` | Run axial analysis with charts |
-| Lateral Analysis | `streamlit_app/pages/06_Lateral_Analysis.py` | p-y curves, deflection profiles |
-| Group Analysis | `streamlit_app/pages/07_Group_Analysis.py` | Group efficiency, block failure |
-| FEM Analysis | `streamlit_app/pages/08_FEM_Analysis.py` | BNWF combined axial+lateral FEM |
-| Export Report | `streamlit_app/pages/09_Export_Report.py` | SPile+-style PDF report export |
-
-### Next.js Routes
-
-| Route | File | Description |
-|-------|------|-------------|
-| `/` | `src/app/page.tsx` | Project setup, import/export |
-| `/soil-profile` | `src/app/soil-profile/page.tsx` | Soil layer input table |
-| `/pile-properties` | `src/app/pile-properties/page.tsx` | Section selection + properties |
-| `/loading` | `src/app/loading/page.tsx` | Load input + combination tables |
-| `/axial-capacity` | `src/app/axial-capacity/page.tsx` | Axial results + bar charts |
-| `/lateral-analysis` | `src/app/lateral-analysis/page.tsx` | Deflection/moment line charts |
-| `/group-analysis` | `src/app/group-analysis/page.tsx` | Efficiency + plan view diagram |
+| 01 — Project Setup | `pages/01_Project_Setup.py` | Project info, TOPL import, JSON save/load |
+| 02 — Soil Profile | `pages/02_Soil_Profile.py` | Soil layers, SPT, p-y model selection, frost depth |
+| 03 — Pile Properties | `pages/03_Pile_Properties.py` | Section selection, corrosion analysis |
+| 04 — Loading | `pages/04_Loading.py` | ASCE 7-22 loads, LRFD/ASD combinations |
+| 05 — Pile Optimization | `pages/05_Pile_Optimization.py` | Section family sweep optimizer |
+| 06 — Axial Capacity | `pages/06_Axial_Capacity.py` | Alpha, Beta, Meyerhof with depth profiles |
+| 07 — Lateral Analysis | `pages/07_Lateral_Analysis.py` | FDM p-y solver, Broms, service deflection, min embedment |
+| 08 — Group Analysis | `pages/08_Group_Analysis.py` | Converse-Labarre, p-multipliers, block failure |
+| 09 — FEM Analysis | `pages/09_FEM_Analysis.py` | BNWF with t-z/q-z springs, pushover, eigenvalue |
+| 11 — Structural Check | `pages/11_Structural_Check.py` | AISC 360-22 H1-1 unity check |
+| 12 — Liquefaction | `pages/12_Liquefaction.py` | Boulanger & Idriss SPT-based screening |
+| 13 — Installation QC | `pages/13_Installation_QC.py` | Dynamic driving formulas, helical torque |
+| 14 — Export Report | `pages/14_Export_Report.py` | PDF report generation and download |
 
 ---
 
-## Shared Calculation Engine
+## Calculation Engine
 
-The `core/` directory contains all engineering logic. Both frontends import from it.
+The `core/` directory contains all engineering logic. The Streamlit app imports from a synced copy at `streamlit_app/core/`.
 
-### `core/soil.py`
+> **Maintenance rule:** Always edit `core/` (root) first, then copy changes to `streamlit_app/core/`. Never edit the synced copy directly.
 
-- `SoilLayer` — Dataclass with field data and derived parameters
-- `SoilProfile` — Layer management, water table, effective/total stress profiles
-- SPT correlations: `correct_N_overburden()`, `n_to_phi_hatanaka()`, `n_to_cu()`, `n_to_Es_sand()`
+### Soil Model (`soil.py`)
 
-### `core/sections.py`
+- `SoilType` enum — Sand, Clay, Silt, Gravel, Organic; drives parameter estimation, axial method selection, Broms checks, liquefaction screening
+- `PYModel` enum — AUTO + 18 LPile v2022 p-y curve models (Matlock soft clay, Reese stiff clay, API sand, etc.)
+- `SoilLayer`, `SoilProfile` — Layer management, water table, effective/total stress profiles
+- SPT correlations — N₆₀, (N₁)₆₀, N-to-φ′, N-to-cᵤ, N-to-γ auto-estimation
 
-- `SteelSection` — AISC section database (W6, W8, C4 shapes)
-- Computed properties: `perimeter`, `tip_area`, `EI_strong`, `EI_weak`, `Mp_strong`
+### Sections (`sections.py`)
 
-### `core/axial.py`
+- `SteelSection` — AISC W-shape and C-shape database with full section properties
+- Section families for optimization sweeps
+- Corrosion analysis — environment-based wall thickness loss over design life
 
-- `axial_capacity()` — Master function: skin friction + end bearing
-- Methods: Alpha (API RP 2A), Beta (effective stress), Meyerhof, Nordlund
-- `helical_capacity_torque()` — K_t torque correlation
-- Returns `AxialResult` with compression/tension capacity breakdown
+### Axial Capacity (`axial.py`)
 
-### `core/lateral.py`
+- Alpha (API RP 2A) — adhesion method for clay
+- Beta (effective stress) — for sand, silt, and mixed profiles
+- Meyerhof — SPT-based bearing capacity for sand
+- Compression and tension capacity with LRFD/ASD factors
 
-- p-y curve generators: `py_matlock_soft_clay()`, `py_api_sand()`, `py_api_soft_clay()`
-- `solve_lateral()` — Nonlinear FDM solver (100 elements, iterative)
-- `broms_cohesionless()`, `broms_cohesive()` — Simplified capacity checks
-- Returns `LateralResult` with depth profiles and p-y curves
+### Lateral Analysis (`lateral.py`)
 
-### `core/group.py`
+- 18 p-y curve models from LPile v2022
+- Nonlinear FDM solver (iterative, 100 elements)
+- Broms simplified capacity check (cohesionless and cohesive)
+- Service deflection evaluation
+- Minimum embedment for lateral stability
 
-- `converse_labarre()` — Axial efficiency factor
-- `p_multipliers_table()` — AASHTO/FHWA lateral multipliers
-- `block_failure_cohesive()` — Block failure capacity
-- `group_analysis()` — Complete analysis returning `GroupResult`
+### Group Analysis (`group.py`)
 
-### `core/loads.py`
+- Converse-Labarre axial efficiency
+- AASHTO/FHWA p-multipliers for lateral group reduction
+- Block failure capacity for cohesive soils
 
-- `generate_lrfd_combinations()` — 7 LRFD load cases (ASCE 7-22)
-- `generate_asd_combinations()` — 8 ASD load cases
-- Helper functions: `wind_velocity_pressure()`, `seismic_base_shear_coeff()`, `snow_load()`
+### BNWF FEM (`bnwf.py`, `tz_qz.py`)
 
-### `core/bnwf.py`
+- Beam-on-nonlinear-Winkler-foundation with p-y lateral springs and t-z/q-z axial springs
+- Static, pushover, and eigenvalue analyses
+- Pile head stiffness matrix extraction
+- Optional OpenSeesPy backend (`bnwf_opensees.py`)
 
-- `solve_bnwf()` — Beam-on-nonlinear-Winkler-foundation FEM solver
-- Combined axial + lateral loading with p-y spring elements
-- Pushover curve generation and Euler buckling analysis
-- Returns `BNWFResult` with depth profiles, spring data, and critical load
+### Structural Check (`structural.py`)
 
-### `core/pdf_export.py`
+- AISC 360-22 Section H1-1 combined axial + bending interaction
+- Depth of fixity and unbraced length calculation
+- Interaction diagram generation
 
-- `generate_report()` — Main entry point producing SPile+-style PDF bytes
-- `ReportData` — Dataclass aggregating all project inputs and analysis results
-- `PileReportPDF` — Custom fpdf2 subclass with professional styling (dark headers, centered tables with multi-line word-wrap, W-beam cross-section diagram)
-- 13 section renderers: cover page, basis for design, design summary, section properties, soil profile, lateral summary, vertical load check, pile head loads, load combinations, depth profile plots + data tables, pile analysis summary, group summary, warnings
-- Graceful degradation — sections skip when analysis data is unavailable
+### Liquefaction Screening (`liquefaction.py`)
 
----
+- Boulanger & Idriss (2014) SPT-based simplified procedure
+- CSR, CRR, magnitude scaling factor, factor of safety per layer
 
-## API Reference (Vercel)
+### Installation QC (`installation.py`)
 
-All API routes accept `POST` requests with JSON body and return JSON.
+- Driven piles: ENR, Gates, FHWA Modified Gates dynamic formulas
+- Helical piles: K_t torque correlation (ICC-ES AC358)
 
-### `POST /api/axial`
+### Other Modules
 
-Runs axial capacity analysis.
-
-**Request body:**
-```json
-{
-  "soil_layers": [
-    { "top_depth": 0, "thickness": 5, "soil_type": "Sand", "N_spt": 15, ... }
-  ],
-  "water_table_depth": null,
-  "pile_section": "W6x9",
-  "embedment_depth": 8,
-  "pile_type": "driven",
-  "bending_axis": "strong",
-  "axial_method": "Beta",
-  "FS_compression": 2.5,
-  "FS_tension": 3.0,
-  "design_method": "LRFD"
-}
-```
-
-**Response:** Compression/tension capacities, layer breakdown, factored results.
-
-### `POST /api/lateral`
-
-Runs lateral p-y analysis with FDM solver.
-
-**Request body:** Same project fields plus `head_condition`, `bending_axis`.
-
-**Response:** Deflection, moment, shear, and rotation profiles at each depth node; p-y curve data; convergence info; DCR check.
-
-### `POST /api/group`
-
-Runs pile group efficiency analysis.
-
-**Request body:** Includes `group_rows`, `group_cols`, `group_spacing`, `Q_single`.
-
-**Response:** Converse-Labarre efficiency, p-multipliers per row, block failure capacity, group capacity.
-
-### `POST /api/loads`
-
-Generates ASCE 7-22 load combinations.
-
-**Request body:** Dead, live, snow, wind (down/up/lateral/moment), seismic loads, `lever_arm`, `design_method`.
-
-**Response:** Arrays of LRFD and/or ASD load cases with V_comp, V_tens, H_lat, M_ground.
+- `frost.py` — IBC 1809.5 frost depth check, Stefan equation
+- `optimization.py` — Section family × embedment sweep with pass/fail criteria
+- `topl_parser.py` — TOPL file import (ATI, Nevados, Nextracker)
+- `loads.py` — ASCE 7-22 LRFD/ASD load combinations, wind/seismic/snow calculators
+- `pdf_export.py` — 20+ section PDF report generation with fpdf2
 
 ---
 
@@ -302,15 +215,6 @@ Generates ASCE 7-22 load combinations.
 4. Set **Main file path** to `streamlit_app/streamlit_app.py`
 5. Deploy
 
-### Vercel
-
-1. Push to GitHub
-2. Import the repository on [vercel.com](https://vercel.com)
-3. Vercel auto-detects Next.js + Python functions from `vercel.json`
-4. Deploy
-
-> The `vercel.json` configures Python runtime `@vercel/python@4.5.1` with 30-second max duration for serverless functions.
-
 ---
 
 ## Engineering Methodology
@@ -319,46 +223,72 @@ Generates ASCE 7-22 load combinations.
 
 | Method | Soil Type | Reference |
 |--------|-----------|-----------|
-| Alpha (adhesion) | Clay | API RP 2A; Tomlinson |
+| Alpha (adhesion) | Clay | API RP 2A; Tomlinson (4th Ed.) |
 | Beta (effective stress) | Sand, Silt | Das (7th Ed.) |
 | Meyerhof | Sand | Meyerhof (1976) |
-| Nordlund | Sand | Nordlund (1963) |
-| Torque correlation | Helical | ICC-ES AC358 |
 
 ### Lateral Analysis (p-y Methods)
 
-| Method | Soil Type | Reference |
-|--------|-----------|-----------|
-| Matlock | Soft clay | Matlock (1970) |
-| Reese | Sand | Reese et al. (1974) |
-| API RP 2A | Sand and soft clay | API RP 2GEO |
+| Model | Soil Type | Reference |
+|-------|-----------|-----------|
+| Matlock soft clay | Soft clay (c_u) | Matlock (1970) |
+| Reese stiff clay below WT | Stiff clay below water table | Reese et al. (1975) |
+| Reese stiff clay above WT | Stiff clay above water table | Welch & Reese (1972) |
+| API sand | Sand (φ′) | API RP 2GEO (2011) |
+| Reese sand | Sand | Reese, Cox & Koop (1974) |
+| Cemented c-φ soil | Mixed soils | Reese & Van Impe (2001) |
+| Weak rock | Weak rock | Reese (1997) |
+
+Plus 11 additional LPile v2022 models for loess, silt, liquefied sand, and other conditions.
+
+### Structural Check
+
+| Check | Standard | Reference |
+|-------|----------|-----------|
+| Combined axial + bending | AISC 360-22 H1-1a/b | AISC (2022) |
+| Depth of fixity | Davisson & Robinson | Davisson (1965) |
+
+### Liquefaction Screening
+
+| Method | Reference |
+|--------|-----------|
+| SPT-based simplified procedure | Boulanger & Idriss (2014) |
 
 ### Group Efficiency
 
-| Method | Application |
-|--------|-------------|
-| Converse-Labarre | Axial group efficiency |
-| AASHTO p-multipliers | Lateral group reduction |
-| Block failure | Cohesive soil group capacity |
+| Method | Application | Reference |
+|--------|-------------|-----------|
+| Converse-Labarre | Axial efficiency | Das (7th Ed.) |
+| AASHTO p-multipliers | Lateral group reduction | AASHTO LRFD (2020) |
+| Block failure | Cohesive soil group capacity | Das (7th Ed.) |
 
 ### Load Combinations
 
-Per ASCE 7-22, Chapters 2, 26–31 (wind), 12/15 (seismic), 7 (snow).
+Per ASCE 7-22: Chapters 2 (combinations), 26–31 (wind), 12/15 (seismic), 7 (snow).
 
 ---
 
 ## References
 
-- Das, B.M. — *Principles of Foundation Engineering* (7th Ed.)
-- Rajapakse, R. — *Pile Design and Construction Rule of Thumb* (2nd Ed.)
-- Tomlinson, M.J. — *Pile Design and Construction Practice* (4th Ed.)
+- AISC 360-22 — *Specification for Structural Steel Buildings*
 - API RP 2GEO — *Geotechnical and Foundation Design Considerations*
 - ASCE 7-22 — *Minimum Design Loads and Associated Criteria*
-- AASHTO LRFD Bridge Design Specifications (p-multipliers)
+- AASHTO LRFD Bridge Design Specifications (2020) — p-multipliers
+- Boulanger, R.W. & Idriss, I.M. (2014) — *CPT and SPT Based Liquefaction Triggering Procedures*
+- Das, B.M. — *Principles of Foundation Engineering* (7th Ed.)
+- Davisson, M.T. (1965) — Estimating buckling loads for piles
+- IBC (2021) — *International Building Code*, Section 1809.5 (frost protection)
+- ICC-ES AC358 — Acceptance criteria for helical pile foundations
 - Matlock, H. (1970) — Correlations for design of laterally loaded piles in soft clay
+- Rajapakse, R. — *Pile Design and Construction Rule of Thumb* (2nd Ed.)
 - Reese, L.C. et al. (1974) — Analysis of laterally loaded piles in sand
+- Reese, L.C. et al. (1975) — Laterally loaded piles in stiff clay
+- Reese, L.C. (1997) — Analysis of laterally loaded piles in weak rock
+- Reese, L.C. & Van Impe, W.F. (2001) — *Single Piles and Pile Groups Under Lateral Loading*
+- Tomlinson, M.J. — *Pile Design and Construction Practice* (4th Ed.)
+- Welch, R.C. & Reese, L.C. (1972) — Laterally loaded behavior of drilled shafts
 
-See the `references/` directory for detailed formula sheets used by the calculation engine.
+See the `references/` directory for detailed formula sheets and the `docs/` directory for the user manual.
 
 ---
 

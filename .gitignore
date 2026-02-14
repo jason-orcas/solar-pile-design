@@ -24,6 +24,9 @@ nul
 # Example / reference documents (large binaries)
 Example_Documents/
 
+# User project files
+Project_Files/
+
 # Environment
 .env
 .env.local
