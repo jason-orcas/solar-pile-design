@@ -4,11 +4,14 @@ import re
 from pathlib import Path
 
 from docx import Document
-from docx.shared import Inches, Pt, Cm, RGBColor
+from docx.shared import Inches, Pt, Cm, Emu, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.ns import qn, nsdecls
 from docx.oxml import parse_xml
+
+# Logo path relative to this script
+LOGO_PATH = Path(__file__).parent.parent / "streamlit_app" / "assets" / "bowman_logo.png"
 
 
 def set_cell_shading(cell, color_hex: str):
@@ -216,10 +219,83 @@ def restart_list_numbering(doc, paragraph):
     num_id_elem.set(qn('w:val'), str(next_num_id))
 
 
+def add_header_footer(section, version_text: str, logo_path: Path):
+    """Add Bowman logo header and footer with title + page number to a section.
+
+    Matches the manually edited v1 format:
+      Header: Bowman logo, top-left (~1.1" wide)
+      Footer: "Bowman -- Solar Pile Optimization & Report Kit Product Manual vX.X"
+              followed by bold page number, right-aligned
+    """
+    # --- Header with logo ---
+    header = section.header
+    header.is_linked_to_previous = False
+    hp = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
+    hp.text = ""
+    if logo_path.exists():
+        run = hp.add_run()
+        run.add_picture(str(logo_path), width=Inches(1.12))
+    hp.paragraph_format.space_after = Pt(0)
+    hp.paragraph_format.space_before = Pt(0)
+
+    # --- Footer with title text + page number ---
+    footer = section.footer
+    footer.is_linked_to_previous = False
+    fp = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
+    fp.text = ""
+
+    # Extract just the version number (e.g., "1.1" from "Version 1.1  |  February 2026")
+    ver_match = re.search(r'(\d+\.\d+)', version_text)
+    ver_num = ver_match.group(1) if ver_match else "1.1"
+
+    # Footer text: "Bowman -- Solar Pile Optimization & Report Kit Product Manual vX.X"
+    footer_text = f"Bowman \u2014 Solar Pile Optimization & Report Kit Product Manual v{ver_num}"
+    run_text = fp.add_run(footer_text)
+    run_text.font.name = "Calibri"
+    run_text.font.size = Pt(10)
+
+    # Add spaces between text and page number
+    spacer = fp.add_run("  " * 20)
+    spacer.font.size = Pt(10)
+
+    # Page number field (bold)
+    run_page = fp.add_run()
+    fld_begin = parse_xml(f'<w:fldChar {nsdecls("w")} w:fldCharType="begin"/>')
+    run_page._r.append(fld_begin)
+
+    run_instr = fp.add_run()
+    instr_text = parse_xml(
+        f'<w:instrText {nsdecls("w")} xml:space="preserve"> PAGE </w:instrText>'
+    )
+    run_instr._r.append(instr_text)
+
+    run_sep = fp.add_run()
+    fld_sep = parse_xml(f'<w:fldChar {nsdecls("w")} w:fldCharType="separate"/>')
+    run_sep._r.append(fld_sep)
+
+    run_num = fp.add_run("1")
+    run_num.bold = True
+    run_num.font.size = Pt(10)
+
+    run_end = fp.add_run()
+    fld_end = parse_xml(f'<w:fldChar {nsdecls("w")} w:fldCharType="end"/>')
+    run_end._r.append(fld_end)
+
+    fp.paragraph_format.space_after = Pt(0)
+    fp.paragraph_format.space_before = Pt(0)
+
+
 def convert_md_to_docx(md_path: str, docx_path: str):
     """Convert the SPORK User Manual markdown to a formatted DOCX."""
     md_text = Path(md_path).read_text(encoding="utf-8")
     lines = md_text.split('\n')
+
+    # Extract version text early for header/footer
+    version_text = "Version 1.1  |  February 2026"
+    for mline in lines[:10]:
+        if mline.strip().startswith("Version"):
+            version_text = mline.strip()
+            break
 
     doc = Document()
 
@@ -231,6 +307,9 @@ def convert_md_to_docx(md_path: str, docx_path: str):
     section.right_margin = Inches(1.0)
     section.top_margin = Inches(0.75)
     section.bottom_margin = Inches(0.75)
+
+    # --- Header and footer (logo + title + page number) ---
+    add_header_footer(section, version_text, LOGO_PATH)
 
     # --- Define styles ---
     style = doc.styles['Normal']
@@ -256,7 +335,8 @@ def convert_md_to_docx(md_path: str, docx_path: str):
             heading_style.font.color.rgb = RGBColor(0x2E, 0x75, 0xB6)
 
     # --- Title page ---
-    for _ in range(6):
+    # Reduced from 6 blank lines to 4 since header logo now occupies top space
+    for _ in range(4):
         doc.add_paragraph()
 
     title_p = doc.add_paragraph()
@@ -284,7 +364,7 @@ def convert_md_to_docx(md_path: str, docx_path: str):
 
     ver_p = doc.add_paragraph()
     ver_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = ver_p.add_run("Version 1.0  |  February 2026")
+    run = ver_p.add_run(version_text)
     run.font.size = Pt(12)
     run.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
 
@@ -314,8 +394,7 @@ def convert_md_to_docx(md_path: str, docx_path: str):
         # Skip the initial title lines (already rendered on title page)
         if line.startswith('# SPORK User Manual') or line.strip() in (
             '**Solar Pile Optimization & Report Kit**',
-            'Version 1.0 | February 2026',
-        ):
+        ) or line.strip().startswith('Version '):
             i += 1
             continue
 
@@ -457,5 +536,5 @@ if __name__ == "__main__":
     base = Path(__file__).parent
     convert_md_to_docx(
         str(base / "SPORK_User_Manual.md"),
-        str(base / "SPORK_User_Manual.docx"),
+        str(base / "SPORK_User_Manual_v2.docx"),
     )

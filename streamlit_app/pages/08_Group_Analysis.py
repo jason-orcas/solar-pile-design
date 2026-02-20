@@ -114,26 +114,19 @@ edited_piles = st.data_editor(
         "label": st.column_config.TextColumn("Label", width="small"),
     },
     num_rows="dynamic",
-    use_container_width=True,
+    width="stretch",
     key="pile_editor",
 )
 
-# Sync edits back to session state
-updated_piles = edited_piles.to_dict("records")
-for i, p in enumerate(updated_piles):
-    p["id"] = i + 1
-    if not p.get("label") or (isinstance(p.get("label"), float) and pd.isna(p["label"])):
-        p["label"] = f"P{i + 1}"
-    if pd.isna(p.get("x")):
-        p["x"] = 0.0
-    if pd.isna(p.get("y")):
-        p["y"] = 0.0
-st.session_state["group_piles"] = updated_piles
+# NOTE: Do NOT sync edited_piles back to group_piles here — writing on every
+# rerun causes Streamlit to detect a data change and reset the editor's delta,
+# which forces users to enter values twice.  Instead, group_piles is synced
+# when "Run Group Analysis" is clicked.
 
-n_piles = len(updated_piles)
+n_piles = len(edited_piles)
 if n_piles > 0:
-    xs = [p["x"] for p in updated_piles]
-    ys = [p["y"] for p in updated_piles]
+    xs = edited_piles["x"].fillna(0.0).tolist()
+    ys = edited_piles["y"].fillna(0.0).tolist()
     c1, c2, c3 = st.columns(3)
     c1.metric("Total Piles", n_piles)
     c2.metric("Group Width (X)", f"{max(xs) - min(xs):.1f} ft")
@@ -175,18 +168,12 @@ edited_loads = st.data_editor(
         "M_y": st.column_config.NumberColumn("M_y (ft-lbs)", format="%.0f", step=100),
     },
     num_rows="dynamic",
-    use_container_width=True,
+    width="stretch",
     key="load_editor",
 )
 
-# Sync load edits
-updated_loads = edited_loads.to_dict("records")
-for i, ld in enumerate(updated_loads):
-    ld["id"] = i + 1
-    for k in ("x", "y", "V", "H_x", "H_y", "M_x", "M_y"):
-        if pd.isna(ld.get(k)):
-            ld[k] = 0.0
-st.session_state["group_loads"] = updated_loads
+# NOTE: Do NOT sync edited_loads back to group_loads here (same delta-reset
+# issue as the pile table).  Synced when "Run Group Analysis" is clicked.
 
 st.markdown("---")
 
@@ -233,7 +220,36 @@ st.markdown("---")
 # ---------------------------------------------------------------------------
 # Section E: Run Analysis
 # ---------------------------------------------------------------------------
+def _clean_pile_records(df: pd.DataFrame) -> list[dict]:
+    """Convert data_editor DataFrame to clean list-of-dicts for session state."""
+    records = df.to_dict("records")
+    for i, p in enumerate(records):
+        p["id"] = i + 1
+        if not p.get("label") or (isinstance(p.get("label"), float) and pd.isna(p["label"])):
+            p["label"] = f"P{i + 1}"
+        if pd.isna(p.get("x")):
+            p["x"] = 0.0
+        if pd.isna(p.get("y")):
+            p["y"] = 0.0
+    return records
+
+
+def _clean_load_records(df: pd.DataFrame) -> list[dict]:
+    """Convert data_editor DataFrame to clean list-of-dicts for session state."""
+    records = df.to_dict("records")
+    for i, ld in enumerate(records):
+        ld["id"] = i + 1
+        for k in ("x", "y", "V", "H_x", "H_y", "M_x", "M_y"):
+            if pd.isna(ld.get(k)):
+                ld[k] = 0.0
+    return records
+
+
 if st.button("Run Group Analysis", type="primary"):
+    # Commit editor state to session state (for save/load and PDF export)
+    st.session_state["group_piles"] = _clean_pile_records(edited_piles)
+    st.session_state["group_loads"] = _clean_load_records(edited_loads)
+
     pile_objs = [PileLocation(**p) for p in st.session_state["group_piles"]]
     load_objs = [LoadPoint(**ld) for ld in st.session_state["group_loads"]]
 
@@ -298,7 +314,7 @@ if "group_result" in st.session_state and isinstance(
             "Status": status,
         })
     rxn_df = pd.DataFrame(rxn_data)
-    st.dataframe(rxn_df, use_container_width=True, hide_index=True)
+    st.dataframe(rxn_df, width="stretch", hide_index=True)
 
     # F4: Governing Summary
     st.subheader("Governing Summary")
@@ -323,7 +339,7 @@ if "group_result" in st.session_state and isinstance(
 
         if result.p_multipliers:
             pm_df = pd.DataFrame(result.p_multipliers)
-            st.dataframe(pm_df, use_container_width=True, hide_index=True)
+            st.dataframe(pm_df, width="stretch", hide_index=True)
 
             fig_pm = go.Figure()
             fig_pm.add_trace(go.Bar(
@@ -344,7 +360,7 @@ if "group_result" in st.session_state and isinstance(
                 yaxis=dict(range=[0, 1.15]),
                 height=350,
             )
-            st.plotly_chart(fig_pm, use_container_width=True)
+            st.plotly_chart(fig_pm, width="stretch")
 
     st.markdown("---")
 
@@ -439,7 +455,7 @@ if "group_result" in st.session_state and isinstance(
         height=500,
         legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     # H: Notes
     if result.notes:

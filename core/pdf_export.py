@@ -241,15 +241,15 @@ class PileReportPDF(FPDF):
         self.set_font("Helvetica", "", 9)
         x_start = self.l_margin + 15
         self.set_x(x_start)
-        self.cell(65, 5.5, label)
+        self.cell(65, 5.5, self._safe_text(label))
         self.cell(5, 5.5, "=")
         self.set_font("Helvetica", "B", 9)
-        self.cell(25, 5.5, str(value))
+        self.cell(25, 5.5, self._safe_text(str(value)))
         self.set_font("Helvetica", "", 9)
-        self.cell(15, 5.5, unit)
+        self.cell(15, 5.5, self._safe_text(unit))
         if note:
             self.set_text_color(*self.TEXT_SECONDARY)
-            self.cell(50, 5.5, note)
+            self.cell(50, 5.5, self._safe_text(note))
             self.set_text_color(*self.TEXT_PRIMARY)
         self.ln(5.5)
 
@@ -295,6 +295,7 @@ class PileReportPDF(FPDF):
         y_top = self.get_y()
         col_x = x_start
         for i, text in enumerate(header_texts):
+            text = self._safe_text(text)
             self.rect(col_x, y_top, col_widths[i], header_h, style="FD")
             n = self._calc_cell_lines(text, col_widths[i])
             text_block_h = n * line_h

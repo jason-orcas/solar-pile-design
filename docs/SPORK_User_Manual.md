@@ -2,7 +2,7 @@
 
 **Solar Pile Optimization & Report Kit**
 
-Version 1.0 | February 2026
+Version 1.1 | February 2026
 
 ---
 
@@ -575,35 +575,117 @@ Uses Broms method with bisection to find the shortest embedment at which the pil
 
 *Page 08: Pile Group Analysis*
 
-Evaluates how closely spaced piles interact and reduce each other's capacity.
+Evaluates load distribution to individual piles in a group, including the effects of eccentricity between applied loads and the pile group centroid. Also evaluates how closely spaced piles interact and reduce each other's capacity via Converse-Labarre efficiency and AASHTO p-multipliers.
 
-**Prerequisites:** Soil layers (Page 02). Axial capacity analysis (Page 06) is recommended for accurate group capacity.
+**Prerequisites:** Soil layers (Page 02). Axial capacity analysis (Page 06) is recommended for accurate utilization calculations.
 
-### Group Configuration
+### Grid Generator
+
+An expandable helper to quickly create a rectangular pile layout.
 
 | Field | Units | Default | Description |
 |-------|-------|---------|-------------|
-| **Number of rows** | -- | 1 | Rows of piles in the direction of lateral loading. |
-| **Piles per row** | -- | 1 | Number of piles in each row, perpendicular to lateral loading. |
-| **Center-to-center spacing** | in | 36 | Distance between pile centers. Must be >= 6 in. |
+| **Number of rows** | -- | 1 | Rows of piles (perpendicular to the tracker axis). |
+| **Piles per row** | -- | 1 | Number of piles in each row (along the tracker axis). |
+| **X spacing -- along tracker** | in | 36 | Center-to-center spacing between piles in the X direction. |
+| **Y spacing -- perpendicular** | in | 36 | Center-to-center spacing between piles in the Y direction. Typically different from X spacing for skid-mounted trackers. |
 
-The s/d ratio (spacing divided by pile width) is computed and displayed. AASHTO recommends s/d >= 3. At s/d >= 8, group effects are negligible.
+Clicking **Generate Grid** creates the pile coordinates and populates the editable pile table below.
 
-### Axial Group Efficiency
+### Pile Coordinates
+
+An editable table where each pile has an individual (X, Y) position in feet. Piles can be added, deleted, or repositioned after grid generation.
+
+| Column | Units | Description |
+|--------|-------|-------------|
+| **Pile #** | -- | Auto-numbered identifier (read-only). |
+| **X (ft)** | ft | Horizontal position along the tracker axis. |
+| **Y (ft)** | ft | Horizontal position perpendicular to the tracker axis. |
+| **Label** | -- | User-editable label (auto-generated as R1C1, R1C2, etc. by the grid generator). |
+
+Summary metrics displayed below the table: Total Piles, Group Width (X span), and Group Length (Y span).
+
+### Load Application Points
+
+An editable table defining one or more load application points. Each load point has a position and full force components. The eccentricity between the resultant load centroid and the pile group centroid generates additional moments distributed to individual piles.
+
+| Column | Units | Description |
+|--------|-------|-------------|
+| **Load #** | -- | Auto-numbered identifier (read-only). |
+| **X (ft)** | ft | X-coordinate of the load application point. |
+| **Y (ft)** | ft | Y-coordinate of the load application point. |
+| **V (lbs)** | lbs | Vertical force (positive = compression, negative = tension). |
+| **H_x (lbs)** | lbs | Lateral force in the X direction. |
+| **H_y (lbs)** | lbs | Lateral force in the Y direction. |
+| **M_x (ft-lbs)** | ft-lbs | Applied moment about the X-axis (causes bending in the Y direction). |
+| **M_y (ft-lbs)** | ft-lbs | Applied moment about the Y-axis (causes bending in the X direction). |
+
+The first load point defaults to the pile group centroid with values from the Loading page (Page 04). Additional load points can be added for multi-point loading.
+
+### Single Pile Capacity
+
+| Field | Units | Description |
+|-------|-------|-------------|
+| **Compression capacity** | lbs | Single-pile ultimate compression capacity. Auto-populated from axial analysis (Page 06) if available, with manual override. |
+| **Tension capacity** | lbs | Single-pile ultimate tension capacity. Auto-populated from axial analysis (Page 06) if available, with manual override. |
+
+These values are the denominators for the per-pile utilization calculation.
+
+### Pile Head Condition
+
+| Option | Description |
+|--------|-------------|
+| **Free** | No rotational restraint at the pile head. Typical for most solar pile applications. |
+| **Fixed/Restricted** | Full or partial moment fixity at the pile head, such as from a rigid pile cap or grade beam. |
+
+### Rigid Cap Load Distribution
+
+The primary analysis uses the rigid cap assumption to distribute applied loads to individual piles based on geometry:
+
+    P_i = V/n + M_x * y_i / sum(y_j^2) + M_y * x_i / sum(x_j^2)
+
+Where:
+- **V** = total vertical load from all load points
+- **n** = number of piles
+- **M_x, M_y** = total moments at the pile group centroid (including contributions from load eccentricity: M_x includes V * e_y, M_y includes V * e_x)
+- **x_i, y_i** = coordinates of pile *i* relative to the pile group centroid
+- **sum(x_j^2), sum(y_j^2)** = sum of squared pile distances from centroid
+
+Reference: Das (7th Ed.) Section 11.16; standard rigid cap assumption.
+
+### Results
+
+**Centroid and Eccentricity:** Pile group centroid (X, Y), load centroid (X, Y), and eccentricity (e_x, e_y) in feet.
+
+**Load Resultant at Centroid:** V_total (lbs), M_x (ft-lbs), and M_y (ft-lbs) after transferring all loads and moments to the pile group centroid.
+
+**Individual Pile Reactions Table:**
+
+| Column | Description |
+|--------|-------------|
+| **Pile #** | Pile identifier |
+| **Label** | Pile label |
+| **X, Y (ft)** | Pile coordinates |
+| **P_axial (lbs)** | Axial reaction (positive = compression, negative = tension) |
+| **Type** | Compression or Tension |
+| **Utilization (%)** | Demand / capacity ratio. For compression: P / Q_comp. For tension: |P| / Q_tens. |
+| **Status** | OK if utilization <= 100%, OVER if exceeded |
+
+**Governing Summary:** Maximum compression, maximum tension, governing pile ID, and maximum utilization. A pass/fail banner indicates whether all piles are within capacity.
+
+### Axial Group Efficiency and p-Multipliers
+
+Available in a collapsible section below the main results.
 
 **Converse-Labarre Formula:**
 
     eta = 1 - theta * [(n1 - 1)*n2 + (n2 - 1)*n1] / (90 * n1 * n2)
 
-where theta = arctan(d/s) in degrees.
+where theta = arctan(d/s) in degrees. The grid dimensions (n_rows, n_cols) and average spacing are inferred from the pile coordinates.
 
 Reference: Converse (1962); widely used in AASHTO and FHWA practice.
 
-**Block Failure:** For cohesive soils, the group is also checked as a single large "block" foundation. The block capacity is the lesser of perimeter shear + base bearing. The governing group capacity is the minimum of the individual (efficiency-reduced) capacity and the block failure capacity.
-
-### Lateral Group Effects -- p-Multipliers
-
-When piles are closely spaced, "shadowing" reduces the lateral resistance of trailing piles. SPORK assigns p-multipliers (f_m) by row position per Brown et al. (2001):
+**Lateral p-Multipliers:** When piles are closely spaced, "shadowing" reduces the lateral resistance of trailing piles. SPORK assigns p-multipliers (f_m) by row position per Brown et al. (2001):
 
 | Row Position | s/d = 3 | s/d = 5 | s/d >= 8 |
 |-------------|---------|---------|----------|
@@ -612,6 +694,18 @@ When piles are closely spaced, "shadowing" reduces the lateral resistance of tra
 | Third+ row | 0.30 | 0.50 | 1.00 |
 
 The average lateral group efficiency = mean of all f_m values.
+
+### Plan View Visualization
+
+An interactive Plotly chart showing:
+
+- **Piles** as square markers, color-coded by utilization: green (< 70%), yellow (70-90%), orange (90-100%), red (> 100%). Each pile is labeled with its ID and axial reaction.
+- **Load points** as red diamond markers, labeled with load ID and vertical force.
+- **Pile group centroid** as a green cross marker.
+- **Load centroid** as an orange triangle marker.
+- **Eccentricity vector** as a dashed gray line connecting the two centroids, annotated with (e_x, e_y).
+
+The axes use equal scaling so the layout is geometrically accurate.
 
 ---
 
@@ -930,9 +1024,12 @@ The PDF includes all completed analyses, organized into sections:
 
 ### Group Analysis
 
-- The Converse-Labarre formula is an empirical approximation. It may not be appropriate for all group geometries.
+- The rigid cap load distribution assumes an infinitely stiff pile cap. For flexible caps, load distribution depends on relative stiffness of the cap, piles, and soil, which requires separate structural analysis.
+- Pile coordinates are user-defined. The analysis does not verify minimum spacing requirements; the user must ensure s/d >= 3 per AASHTO.
+- The Converse-Labarre formula is an empirical approximation. Grid dimensions and spacing are inferred from pile coordinates; irregular layouts may not be well-represented.
 - Block failure is only checked for groups with cohesive soil layers.
 - p-multipliers are interpolated from published values (Brown et al., 2001) for limited spacing ratios.
+- Utilization is computed independently for compression and tension. Combined axial + lateral interaction is evaluated on the Structural Check page (Page 11).
 
 ### Liquefaction
 

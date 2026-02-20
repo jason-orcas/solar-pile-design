@@ -29,7 +29,7 @@ Built with **Streamlit** (Python + Plotly). A legacy Next.js frontend exists but
 - **Pile Optimization** — Section family sweep across embedment ranges with automatic pass/fail checks
 - **Axial Capacity Analysis** — Alpha (API RP 2A), Beta (effective stress), and Meyerhof methods; LRFD/ASD factored results with capacity vs. depth profiles
 - **Lateral Load Analysis** — Nonlinear p-y curve generation (18 LPile v2022 models) with finite difference method solver; Broms simplified check; service deflection check; minimum embedment for lateral stability
-- **Pile Group Analysis** — Converse-Labarre efficiency, AASHTO/FHWA p-multipliers, block failure check
+- **Pile Group Analysis** — Enercalc-style rigid cap load distribution with individual pile placement, load centroid eccentricity, per-pile utilization; plus Converse-Labarre efficiency, AASHTO/FHWA p-multipliers, block failure check
 - **BNWF Finite Element Analysis** — Beam-on-nonlinear-Winkler-foundation model with t-z/q-z axial springs, pushover curves, eigenvalue analysis, and pile head stiffness matrix
 - **AISC 360-22 Structural Check** — H1-1 combined axial + bending interaction with depth of fixity and interaction diagrams
 - **Liquefaction Screening** — Boulanger & Idriss (2014) SPT-based simplified procedure with CSR/CRR and factor of safety profiles
@@ -123,7 +123,7 @@ Solar_Pile_Design/
 | 05 — Pile Optimization | `pages/05_Pile_Optimization.py` | Section family sweep optimizer |
 | 06 — Axial Capacity | `pages/06_Axial_Capacity.py` | Alpha, Beta, Meyerhof with depth profiles |
 | 07 — Lateral Analysis | `pages/07_Lateral_Analysis.py` | FDM p-y solver, Broms, service deflection, min embedment |
-| 08 — Group Analysis | `pages/08_Group_Analysis.py` | Converse-Labarre, p-multipliers, block failure |
+| 08 — Group Analysis | `pages/08_Group_Analysis.py` | Rigid cap distribution, individual pile placement, load eccentricity, utilization |
 | 09 — FEM Analysis | `pages/09_FEM_Analysis.py` | BNWF with t-z/q-z springs, pushover, eigenvalue |
 | 11 — Structural Check | `pages/11_Structural_Check.py` | AISC 360-22 H1-1 unity check |
 | 12 — Liquefaction | `pages/12_Liquefaction.py` | Boulanger & Idriss SPT-based screening |
@@ -168,6 +168,10 @@ The `core/` directory contains all engineering logic. The Streamlit app imports 
 
 ### Group Analysis (`group.py`)
 
+- Enercalc-style rigid cap load distribution: P_i = V/n + M_x*y_i/sum(y_j^2) + M_y*x_i/sum(x_j^2)
+- Individual pile placement with X/Y coordinates (grid generator or manual)
+- Multiple load application points with eccentricity-driven moment transfer
+- Per-pile axial reaction and utilization percentage
 - Converse-Labarre axial efficiency
 - AASHTO/FHWA p-multipliers for lateral group reduction
 - Block failure capacity for cohesive soils
@@ -254,10 +258,11 @@ Plus 11 additional LPile v2022 models for loess, silt, liquefied sand, and other
 |--------|-----------|
 | SPT-based simplified procedure | Boulanger & Idriss (2014) |
 
-### Group Efficiency
+### Group Analysis
 
 | Method | Application | Reference |
 |--------|-------------|-----------|
+| Rigid cap distribution | Load distribution to individual piles | Das (7th Ed.); Enercalc |
 | Converse-Labarre | Axial efficiency | Das (7th Ed.) |
 | AASHTO p-multipliers | Lateral group reduction | AASHTO LRFD (2020) |
 | Block failure | Cohesive soil group capacity | Das (7th Ed.) |
