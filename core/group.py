@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 from .soil import SoilProfile, SoilType
 
@@ -26,6 +27,82 @@ class GroupResult:
     # Lateral
     p_multipliers: list[dict]  # Per-row multipliers
     eta_lateral: float       # Average lateral group efficiency
+
+    method: str
+    notes: list[str]
+
+
+# ---------------------------------------------------------------------------
+# Enercalc-style individual pile placement dataclasses
+# ---------------------------------------------------------------------------
+
+@dataclass
+class PileLocation:
+    """A single pile with its coordinates."""
+    id: int          # 1-based pile number
+    x: float         # ft, from origin
+    y: float         # ft, from origin
+    label: str = ""
+
+
+@dataclass
+class LoadPoint:
+    """A single load application point."""
+    id: int
+    x: float          # ft
+    y: float          # ft
+    V: float           # lbs (+ = compression, - = tension)
+    H_x: float = 0.0  # lbs, lateral in X
+    H_y: float = 0.0  # lbs, lateral in Y
+    M_x: float = 0.0  # ft-lbs, moment about X-axis
+    M_y: float = 0.0  # ft-lbs, moment about Y-axis
+
+
+@dataclass
+class PileReaction:
+    """Computed reaction at a single pile."""
+    pile_id: int
+    x: float           # ft
+    y: float           # ft
+    label: str
+    P_axial: float     # lbs (+ = compression)
+    utilization: float  # demand / capacity (0–1+)
+    governs: bool
+
+
+@dataclass
+class RigidCapResult:
+    """Results from rigid-cap load distribution analysis."""
+    piles: list[PileLocation]
+    n_piles: int
+
+    # Centroids and eccentricity
+    pile_centroid_x: float      # ft
+    pile_centroid_y: float      # ft
+    load_centroid_x: float      # ft
+    load_centroid_y: float      # ft
+    eccentricity_x: float      # ft (load_cx - pile_cx)
+    eccentricity_y: float      # ft
+
+    # Load resultants at pile group centroid
+    V_total: float              # lbs
+    M_x_total: float            # ft-lbs (includes V * e_y)
+    M_y_total: float            # ft-lbs (includes V * e_x)
+
+    # Individual pile reactions
+    reactions: list[PileReaction]
+    P_max: float                # lbs, max compression
+    P_min: float                # lbs, max tension (most negative)
+    governing_pile_id: int
+
+    # Utilization
+    max_utilization: float
+    all_piles_ok: bool
+
+    # Legacy compatibility
+    eta_axial: float
+    p_multipliers: list[dict]
+    eta_lateral: float
 
     method: str
     notes: list[str]
@@ -240,5 +317,246 @@ def group_analysis(
         p_multipliers=pm,
         eta_lateral=round(eta_lateral, 3),
         method="Converse-Labarre + AASHTO p-multipliers",
+        notes=notes,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Enercalc-style rigid cap load distribution
+# ---------------------------------------------------------------------------
+
+def generate_pile_grid(
+    n_rows: int,
+    n_cols: int,
+    x_spacing_ft: float,
+    y_spacing_ft: float,
+) -> list[PileLocation]:
+    """Generate a rectangular grid of pile positions.
+
+    Origin (0, 0) at bottom-left. X = columns (along tracker),
+    Y = rows (perpendicular).  Piles numbered left-to-right,
+    bottom-to-top.
+    """
+    piles: list[PileLocation] = []
+    pid = 1
+    for row in range(n_rows):
+        for col in range(n_cols):
+            piles.append(PileLocation(
+                id=pid,
+                x=round(col * x_spacing_ft, 4),
+                y=round(row * y_spacing_ft, 4),
+                label=f"R{row + 1}C{col + 1}",
+            ))
+            pid += 1
+    return piles
+
+
+def compute_pile_group_centroid(
+    piles: list[PileLocation],
+) -> tuple[float, float]:
+    """Geometric centroid of the pile group (ft)."""
+    n = len(piles)
+    if n == 0:
+        return 0.0, 0.0
+    cx = sum(p.x for p in piles) / n
+    cy = sum(p.y for p in piles) / n
+    return cx, cy
+
+
+def compute_load_resultant(
+    loads: list[LoadPoint],
+    pile_centroid: tuple[float, float],
+) -> tuple[float, float, float, float, float]:
+    """Compute load resultant transferred to the pile group centroid.
+
+    Returns:
+        (V_total, M_x_total, M_y_total, load_centroid_x, load_centroid_y)
+
+    Sign convention:
+        M_x about X-axis (causes bending in Y direction).
+        M_y about Y-axis (causes bending in X direction).
+    """
+    V_total = sum(L.V for L in loads)
+    pcx, pcy = pile_centroid
+
+    # Load centroid — weighted by absolute vertical force
+    abs_sum = sum(abs(L.V) for L in loads)
+    if abs_sum > 0:
+        load_cx = sum(L.V * L.x for L in loads) / V_total if V_total != 0 else (
+            sum(L.x for L in loads) / len(loads)
+        )
+        load_cy = sum(L.V * L.y for L in loads) / V_total if V_total != 0 else (
+            sum(L.y for L in loads) / len(loads)
+        )
+    else:
+        load_cx = sum(L.x for L in loads) / len(loads) if loads else pcx
+        load_cy = sum(L.y for L in loads) / len(loads) if loads else pcy
+
+    ex = load_cx - pcx
+    ey = load_cy - pcy
+
+    # Transfer moments to pile centroid
+    M_x_total = sum(L.M_x for L in loads) + V_total * ey
+    M_y_total = sum(L.M_y for L in loads) + V_total * ex
+
+    return V_total, M_x_total, M_y_total, load_cx, load_cy
+
+
+def _infer_grid_dims(piles: list[PileLocation]) -> tuple[int, int, float]:
+    """Infer n_rows, n_cols, and average spacing from pile layout.
+
+    Used for Converse-Labarre and p-multiplier calculations.
+    Returns (n_rows, n_cols, avg_spacing_in).
+    """
+    if len(piles) <= 1:
+        return 1, 1, 0.0
+
+    xs = sorted(set(round(p.x, 2) for p in piles))
+    ys = sorted(set(round(p.y, 2) for p in piles))
+    n_cols = len(xs)
+    n_rows = len(ys)
+
+    spacings: list[float] = []
+    for i in range(1, len(xs)):
+        spacings.append(abs(xs[i] - xs[i - 1]))
+    for i in range(1, len(ys)):
+        spacings.append(abs(ys[i] - ys[i - 1]))
+
+    avg_spacing_ft = sum(spacings) / len(spacings) if spacings else 0.0
+    return n_rows, n_cols, avg_spacing_ft * 12.0  # convert to inches
+
+
+def rigid_cap_distribution(
+    piles: list[PileLocation],
+    loads: list[LoadPoint],
+    Q_capacity_compression: float = 0.0,
+    Q_capacity_tension: float = 0.0,
+    profile: SoilProfile | None = None,
+    pile_width: float = 0.0,
+    embedment: float = 0.0,
+) -> RigidCapResult:
+    """Rigid-cap load distribution to individual piles.
+
+    Implements:  P_i = V/n + M_x * y_i / sum(y_j^2) + M_y * x_i / sum(x_j^2)
+
+    Coordinates are shifted to pile group centroid before applying the formula.
+    """
+    n = len(piles)
+    notes: list[str] = []
+
+    if n == 0:
+        raise ValueError("No piles defined.")
+
+    # Centroid
+    pcx, pcy = compute_pile_group_centroid(piles)
+
+    # Centroid-relative coordinates
+    xi = [p.x - pcx for p in piles]
+    yi = [p.y - pcy for p in piles]
+
+    sum_x2 = sum(x ** 2 for x in xi)
+    sum_y2 = sum(y ** 2 for y in yi)
+
+    # Load resultant at centroid
+    V_total, M_x_total, M_y_total, load_cx, load_cy = compute_load_resultant(
+        loads, (pcx, pcy),
+    )
+    ex = load_cx - pcx
+    ey = load_cy - pcy
+
+    notes.append(f"Pile group centroid: ({pcx:.2f}, {pcy:.2f}) ft")
+    notes.append(f"Load centroid: ({load_cx:.2f}, {load_cy:.2f}) ft")
+    if abs(ex) > 0.001 or abs(ey) > 0.001:
+        notes.append(f"Eccentricity: e_x = {ex:.3f} ft, e_y = {ey:.3f} ft")
+
+    # Distribute to each pile
+    reactions: list[PileReaction] = []
+    for i, p in enumerate(piles):
+        P_i = V_total / n
+        if sum_y2 > 1e-9:
+            P_i += M_x_total * yi[i] / sum_y2
+        if sum_x2 > 1e-9:
+            P_i += M_y_total * xi[i] / sum_x2
+
+        # Utilization
+        if P_i >= 0 and Q_capacity_compression > 0:
+            util = P_i / Q_capacity_compression
+        elif P_i < 0 and Q_capacity_tension > 0:
+            util = abs(P_i) / Q_capacity_tension
+        else:
+            util = 0.0
+
+        reactions.append(PileReaction(
+            pile_id=p.id,
+            x=p.x,
+            y=p.y,
+            label=p.label,
+            P_axial=round(P_i, 1),
+            utilization=round(util, 4),
+            governs=False,
+        ))
+
+    # Identify governing pile
+    if reactions:
+        max_idx = max(range(len(reactions)), key=lambda j: abs(reactions[j].P_axial))
+        reactions[max_idx] = PileReaction(
+            pile_id=reactions[max_idx].pile_id,
+            x=reactions[max_idx].x,
+            y=reactions[max_idx].y,
+            label=reactions[max_idx].label,
+            P_axial=reactions[max_idx].P_axial,
+            utilization=reactions[max_idx].utilization,
+            governs=True,
+        )
+        P_max = max(r.P_axial for r in reactions)
+        P_min = min(r.P_axial for r in reactions)
+        governing_id = reactions[max_idx].pile_id
+        max_util = max(r.utilization for r in reactions)
+    else:
+        P_max = P_min = 0.0
+        governing_id = 0
+        max_util = 0.0
+
+    all_ok = all(r.utilization <= 1.0 for r in reactions)
+
+    if P_max > 0:
+        notes.append(f"Max compression: {P_max:,.0f} lbs (Pile {governing_id})")
+    if P_min < 0:
+        min_pile = min(reactions, key=lambda r: r.P_axial)
+        notes.append(f"Max tension: {abs(P_min):,.0f} lbs (Pile {min_pile.pile_id})")
+
+    # Legacy: Converse-Labarre and p-multipliers from inferred grid
+    n_rows_inf, n_cols_inf, avg_spacing_in = _infer_grid_dims(piles)
+    s_over_d = avg_spacing_in / pile_width if pile_width > 0 else 999
+    eta_axial = converse_labarre(n_rows_inf, n_cols_inf, pile_width, avg_spacing_in)
+    pm = p_multipliers_table(n_rows_inf, s_over_d)
+    fm_sum = sum(r["f_m"] * n_cols_inf for r in pm)
+    eta_lat = fm_sum / n if n > 0 else 1.0
+
+    notes.append(f"Converse-Labarre eta = {eta_axial:.3f} (inferred {n_rows_inf}x{n_cols_inf} grid)")
+    notes.append(f"Average lateral p-multiplier = {eta_lat:.3f}")
+
+    return RigidCapResult(
+        piles=piles,
+        n_piles=n,
+        pile_centroid_x=round(pcx, 4),
+        pile_centroid_y=round(pcy, 4),
+        load_centroid_x=round(load_cx, 4),
+        load_centroid_y=round(load_cy, 4),
+        eccentricity_x=round(ex, 4),
+        eccentricity_y=round(ey, 4),
+        V_total=round(V_total, 1),
+        M_x_total=round(M_x_total, 1),
+        M_y_total=round(M_y_total, 1),
+        reactions=reactions,
+        P_max=round(P_max, 1),
+        P_min=round(P_min, 1),
+        governing_pile_id=governing_id,
+        max_utilization=round(max_util, 4),
+        all_piles_ok=all_ok,
+        eta_axial=round(eta_axial, 3),
+        p_multipliers=pm,
+        eta_lateral=round(eta_lat, 3),
+        method="Rigid cap distribution (P_i = V/n + M_x*y_i/sum(y_j^2) + M_y*x_i/sum(x_j^2))",
         notes=notes,
     )

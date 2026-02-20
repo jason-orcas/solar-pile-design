@@ -23,7 +23,7 @@ from .sections import SteelSection, SECTIONS, get_section
 from .soil import SoilProfile, SoilLayer, SoilType
 from .axial import AxialResult
 from .lateral import LateralResult, PYCurve
-from .group import GroupResult
+from .group import GroupResult, RigidCapResult
 from .bnwf import BNWFResult
 from .loads import LoadCase, LoadInput, generate_lrfd_combinations, generate_asd_combinations
 from .frost import FrostCheckResult
@@ -82,6 +82,11 @@ class ReportData:
     group_n_rows: int = 1
     group_n_cols: int = 1
     group_spacing: float = 36.0            # in
+    group_x_spacing: float = 36.0          # in
+    group_y_spacing: float = 36.0          # in
+    group_piles: list = field(default_factory=list)
+    group_loads: list = field(default_factory=list)
+    group_head_condition: str = "Free"
 
     # Corrosion
     corrosion_enabled: bool = False
@@ -1148,6 +1153,12 @@ def _render_group_summary(pdf: PileReportPDF, data: ReportData):
     if data.group_result is None:
         return
     gr = data.group_result
+
+    # Dispatch: RigidCapResult (new) vs GroupResult (legacy)
+    if isinstance(gr, RigidCapResult):
+        _render_rigid_cap_group(pdf, data, gr)
+        return
+
     if gr.n_piles <= 1:
         return
 
@@ -1174,6 +1185,86 @@ def _render_group_summary(pdf: PileReportPDF, data: ReportData):
             for r in gr.p_multipliers
         ]
         pdf.styled_table(["Row", "Position", "f_m"], rows,
+                         col_widths=[25, 50, 25])
+        pdf.card_end()
+
+
+def _render_rigid_cap_group(
+    pdf: PileReportPDF, data: ReportData, gr: RigidCapResult,
+):
+    """Render Enercalc-style rigid cap load distribution results."""
+    if gr.n_piles < 1:
+        return
+
+    pdf.add_page()
+    pdf.section_header("Pile Group Analysis — Rigid Cap Distribution")
+
+    # Centroid & eccentricity
+    pdf.card_start()
+    pdf.kv_row("Number of piles", f"{gr.n_piles}")
+    pdf.kv_row("Head condition", data.group_head_condition)
+    pdf.kv_row("Pile group centroid",
+               f"({gr.pile_centroid_x:.2f}, {gr.pile_centroid_y:.2f})", "ft")
+    pdf.kv_row("Load centroid",
+               f"({gr.load_centroid_x:.2f}, {gr.load_centroid_y:.2f})", "ft")
+    pdf.kv_row("Eccentricity e_x", f"{gr.eccentricity_x:.3f}", "ft")
+    pdf.kv_row("Eccentricity e_y", f"{gr.eccentricity_y:.3f}", "ft")
+    pdf.card_end()
+
+    # Load resultant
+    pdf.ln(3)
+    pdf.card_start()
+    pdf.sub_header("Load Resultant at Pile Centroid")
+    pdf.kv_row("V_total", f"{gr.V_total:,.0f}", "lbs")
+    pdf.kv_row("M_x (at centroid)", f"{gr.M_x_total:,.0f}", "ft-lbs")
+    pdf.kv_row("M_y (at centroid)", f"{gr.M_y_total:,.0f}", "ft-lbs")
+    pdf.card_end()
+
+    # Individual pile reactions table
+    pdf.ln(3)
+    pdf.card_start()
+    pdf.sub_header("Individual Pile Reactions")
+    headers = ["Pile", "X (ft)", "Y (ft)", "P (lbs)", "Type", "Util (%)", "Status"]
+    rows = []
+    for r in gr.reactions:
+        load_type = "Comp" if r.P_axial >= 0 else "Tens"
+        status = "OK" if r.utilization <= 1.0 else "OVER"
+        rows.append([
+            f"{r.pile_id} ({r.label})",
+            f"{r.x:.2f}",
+            f"{r.y:.2f}",
+            f"{r.P_axial:,.0f}",
+            load_type,
+            f"{r.utilization * 100:.1f}",
+            status,
+        ])
+    pdf.styled_table(headers, rows, col_widths=[20, 14, 14, 18, 10, 12, 12])
+    pdf.card_end()
+
+    # Governing summary
+    pdf.ln(3)
+    pdf.card_start()
+    pdf.sub_header("Governing Summary")
+    pdf.kv_row("Max compression", f"{gr.P_max:,.0f}", "lbs")
+    pdf.kv_row("Max tension", f"{gr.P_min:,.0f}", "lbs")
+    pdf.kv_row("Governing pile", f"Pile {gr.governing_pile_id}")
+    pdf.kv_row("Max utilization", f"{gr.max_utilization:.1%}")
+    status_text = "PASS — All piles within capacity" if gr.all_piles_ok else "FAIL — One or more piles exceed capacity"
+    pdf.kv_row("Status", status_text)
+    pdf.card_end()
+
+    # Efficiency & p-multipliers
+    if gr.p_multipliers:
+        pdf.ln(3)
+        pdf.card_start()
+        pdf.sub_header("Group Efficiency & p-Multipliers")
+        pdf.kv_row("Converse-Labarre eta", f"{gr.eta_axial:.3f}")
+        pdf.kv_row("Average lateral efficiency", f"{gr.eta_lateral:.3f}")
+        pm_rows = [
+            [f"Row {r['row']}", r["position"], f"{r['f_m']:.3f}"]
+            for r in gr.p_multipliers
+        ]
+        pdf.styled_table(["Row", "Position", "f_m"], pm_rows,
                          col_widths=[25, 50, 25])
         pdf.card_end()
 
