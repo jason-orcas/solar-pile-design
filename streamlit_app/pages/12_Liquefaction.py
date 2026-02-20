@@ -59,11 +59,15 @@ profile = SoilProfile(layers=layers_obj, water_table_depth=st.session_state.wate
 
 # --- Run ---
 if st.button("Run Liquefaction Screening", type="primary"):
+    # Guard against None from cleared number_input fields
+    _a_max = a_max if a_max is not None else 0.0
+    _M_w = M_w if M_w is not None else 7.5
+    _FC = FC if FC is not None else 0.0
     result = liquefaction_screening(
         profile=profile,
-        a_max_g=a_max,
-        M_w=M_w,
-        fines_content_default=FC,
+        a_max_g=_a_max,
+        M_w=_M_w,
+        fines_content_default=_FC,
         max_depth_ft=max_depth,
     )
     st.session_state["liq_result"] = result
