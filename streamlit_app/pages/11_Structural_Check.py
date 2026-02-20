@@ -57,7 +57,7 @@ if st.session_state.get("soil_layers"):
         k_h = layer_obj.get_k_h()
         D_f = depth_of_fixity(EI, "clay", k_h=k_h)
 
-L_b = above_grade + D_f
+L_b = (above_grade or 0.0) + D_f
 
 with col3:
     st.metric("Depth of Fixity (D_f)", f"{D_f:.2f} ft")
@@ -116,13 +116,18 @@ st.markdown("---")
 
 # --- Run Check ---
 if st.button("Run AISC H1-1 Check", type="primary"):
+    # Guard against None from cleared number_input fields
+    _P_u = P_u if P_u is not None else 0.0
+    _M_ux = M_ux if M_ux is not None else 0.0
+    _M_uy = M_uy if M_uy is not None else 0.0
+    _K = K_factor if K_factor is not None else 2.1
     result = aisc_h1_check(
         section=section,
-        P_u_lbs=P_u,
-        M_ux_kip_in=M_ux,
-        M_uy_kip_in=M_uy,
+        P_u_lbs=_P_u,
+        M_ux_kip_in=_M_ux,
+        M_uy_kip_in=_M_uy,
         L_b_ft=L_b,
-        K=K_factor,
+        K=_K,
         D_f_ft=D_f,
     )
     st.session_state["structural_result"] = result
