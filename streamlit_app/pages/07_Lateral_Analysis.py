@@ -249,21 +249,25 @@ if st.button("Check Service Deflection", key="btn_svc_defl"):
 
 if "service_defl_result" in st.session_state:
     svc_r = st.session_state["service_defl_result"]
+    # Read from session state key in case the widget returned None (cleared field)
+    _defl_limit = st.session_state.get("service_defl_limit", None)
+    if _defl_limit is None or not isinstance(_defl_limit, (int, float)):
+        _defl_limit = 0.50
     sc1, sc2, sc3 = st.columns(3)
     sc1.metric("Service Deflection", f"{svc_r.y_ground:.3f} in")
-    sc2.metric("Limit", f"{defl_limit:.2f} in")
-    margin = defl_limit - abs(svc_r.y_ground)
+    sc2.metric("Limit", f"{_defl_limit:.2f} in")
+    margin = _defl_limit - abs(svc_r.y_ground)
     sc3.metric("Margin", f"{margin:.3f} in")
 
-    if abs(svc_r.y_ground) <= defl_limit:
+    if abs(svc_r.y_ground) <= _defl_limit:
         st.success(
-            f"PASS — Service deflection {abs(svc_r.y_ground):.3f} in <= "
-            f"limit {defl_limit:.2f} in"
+            f"PASS -- Service deflection {abs(svc_r.y_ground):.3f} in <= "
+            f"limit {_defl_limit:.2f} in"
         )
     else:
         st.error(
-            f"FAIL — Service deflection {abs(svc_r.y_ground):.3f} in > "
-            f"limit {defl_limit:.2f} in"
+            f"FAIL -- Service deflection {abs(svc_r.y_ground):.3f} in > "
+            f"limit {_defl_limit:.2f} in"
         )
 
 # ============================================================================
