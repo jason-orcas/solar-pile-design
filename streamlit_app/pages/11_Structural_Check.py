@@ -15,7 +15,11 @@ from core.lateral import depth_of_fixity
 st.header("AISC 360 Structural Capacity Check")
 
 # --- Prerequisites ---
-section = st.session_state.get("section") or get_section(st.session_state.pile_section)
+pile_section_name = st.session_state.get("pile_section", None)
+if not pile_section_name:
+    st.warning("Select a pile section on the **Pile Properties** page first.")
+    st.stop()
+section = st.session_state.get("section") or get_section(pile_section_name)
 
 st.subheader("Unbraced Length & Buckling Parameters")
 col1, col2, col3 = st.columns(3)
