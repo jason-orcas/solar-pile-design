@@ -94,7 +94,7 @@ Solar_Pile_Design/
 │
 ├── docs/                        ← Documentation
 │   ├── SPORK_User_Manual.md     ← User manual (markdown source)
-│   ├── SPORK_User_Manual.docx   ← User manual (Word format)
+│   ├── SPORK_User_Manual_v1.2.docx ← User manual (Word format, current)
 │   └── build_manual_docx.py     ← Markdown → DOCX conversion script
 │
 ├── references/                  ← Engineering formula reference library (5 files)

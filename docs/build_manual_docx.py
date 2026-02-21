@@ -536,5 +536,5 @@ if __name__ == "__main__":
     base = Path(__file__).parent
     convert_md_to_docx(
         str(base / "SPORK_User_Manual.md"),
-        str(base / "SPORK_User_Manual_v2.docx"),
+        str(base / "SPORK_User_Manual_v1.2.docx"),
     )

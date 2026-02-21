@@ -2,7 +2,7 @@
 
 **Solar Pile Optimization & Report Kit**
 
-Version 1.1 | February 2026
+Version 1.2 | February 2026
 
 ---
 
