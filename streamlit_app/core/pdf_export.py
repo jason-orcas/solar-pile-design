@@ -426,12 +426,12 @@ def _render_basis_for_design(pdf: PileReportPDF, data: ReportData):
     # Design Limits
     pdf.card_start()
     pdf.sub_header("Design Limits")
-    pdf.kv_row("Top Deflection", f"{data.top_deflection_limit}", "in")
-    pdf.kv_row("Grade Deflection", f"{data.grade_deflection_limit}", "in")
-    pdf.kv_row("Bottom Deflection", f"{data.bottom_deflection_limit}", "in")
+    pdf.kv_row("Top Deflection", f"{data.top_deflection_limit or 4.0}", "in")
+    pdf.kv_row("Grade Deflection", f"{data.grade_deflection_limit or 1.0}", "in")
+    pdf.kv_row("Bottom Deflection", f"{data.bottom_deflection_limit or 0.1}", "in")
     sec_type = data.section.name[:2] if data.section else "W6"
     pdf.kv_row("Section Type", sec_type)
-    pdf.kv_row("Yield Strength", f"{data.yield_strength:.0f}", "ksi")
+    pdf.kv_row("Yield Strength", f"{data.yield_strength or 50.0:.0f}", "ksi")
     pdf.kv_row("Loading Type", data.loading_type)
     pdf.card_end()
 
@@ -457,15 +457,17 @@ def _render_design_summary(pdf: PileReportPDF, data: ReportData):
     pdf.add_page()
     pdf.section_header("Design Summary")
 
-    total_length = data.above_grade + data.pile_embedment
+    _above = data.above_grade if data.above_grade is not None else 0.0
+    _embed = data.pile_embedment if data.pile_embedment is not None else 0.0
+    total_length = _above + _embed
     sec_name = data.section.name if data.section else "-"
 
     pdf.card_start()
     pdf.styled_table(
         headers=["Pile Name", "Section Used", "Above Grade", "Embed (ft)", "Total Length (ft)"],
         rows=[
-            ["Pile 1", sec_name, f"{data.above_grade:.1f}",
-             f"{data.pile_embedment:.1f}", f"{total_length:.1f}"],
+            ["Pile 1", sec_name, f"{_above:.1f}",
+             f"{_embed:.1f}", f"{total_length:.1f}"],
         ],
         col_widths=[35, 30, 30, 30, 35],
     )
@@ -601,12 +603,15 @@ def _render_corrosion_summary(pdf: PileReportPDF, data: ReportData):
     # Parameters
     pdf.card_start()
     pdf.sub_header("Corrosion Parameters (FHWA/AASHTO)")
-    pdf.kv_row("Design Life", f"{data.corrosion_design_life:.0f}", "years")
-    pdf.kv_row("Environment", data.corrosion_environment)
-    pdf.kv_row("Coating", data.corrosion_coating)
-    pdf.kv_row("Corrosion Rate", f"{data.corrosion_rate:.2f}", "mils/year")
-    pdf.kv_row("Thickness Loss (per side)", f"{data.corrosion_t_loss:.4f}", "in")
-    pdf.kv_row("Total Loss (both sides)", f"{2 * data.corrosion_t_loss:.4f}", "in")
+    _dl = data.corrosion_design_life or 0.0
+    _cr = data.corrosion_rate or 0.0
+    _tl = data.corrosion_t_loss or 0.0
+    pdf.kv_row("Design Life", f"{_dl:.0f}", "years")
+    pdf.kv_row("Environment", data.corrosion_environment or "-")
+    pdf.kv_row("Coating", data.corrosion_coating or "-")
+    pdf.kv_row("Corrosion Rate", f"{_cr:.2f}", "mils/year")
+    pdf.kv_row("Thickness Loss (per side)", f"{_tl:.4f}", "in")
+    pdf.kv_row("Total Loss (both sides)", f"{2 * _tl:.4f}", "in")
     pdf.card_end()
 
     # Comparison table
@@ -795,8 +800,8 @@ def _render_lateral_summary(pdf: PileReportPDF, data: ReportData):
                  "Top Defl (in)", "Grade Defl (in)",
                  "Design Moment (kip-in)", "Moment Cap (kip-in)", "Pile Stress"],
         rows=[[
-            "Pile 1", s.name, f"{data.above_grade:.1f}",
-            f"{data.pile_embedment:.1f}",
+            "Pile 1", s.name, f"{data.above_grade or 0.0:.1f}",
+            f"{data.pile_embedment or 0.0:.1f}",
             f"{abs(y_top):.2f}", f"{abs(y_ground):.2f}",
             f"{M_max_kip_in:.2f}", f"{Mp_kip_in:.2f}", f"{stress_ratio:.2f}",
         ]],
@@ -960,9 +965,11 @@ def _render_depth_profiles(pdf: PileReportPDF, data: ReportData):
     # Pile geometry
     pdf.card_start()
     pdf.sub_header("Pile Geometry")
-    pdf.kv_row("Pile length above ground", f"{data.above_grade:.1f}", "ft")
-    pdf.kv_row("Pile embedment", f"{data.pile_embedment:.1f}", "ft")
-    total = data.above_grade + data.pile_embedment
+    _ag = data.above_grade if data.above_grade is not None else 0.0
+    _pe = data.pile_embedment if data.pile_embedment is not None else 0.0
+    pdf.kv_row("Pile length above ground", f"{_ag:.1f}", "ft")
+    pdf.kv_row("Pile embedment", f"{_pe:.1f}", "ft")
+    total = _ag + _pe
     pdf.kv_row("Total Pile length", f"{total:.1f}", "ft")
     if data.section:
         pile_diam = data.section.depth if data.bending_axis == "strong" else data.section.width
@@ -1471,7 +1478,7 @@ def _render_service_deflection(pdf: PileReportPDF, data: ReportData):
     pdf.section_header("Service Load Deflection Check")
 
     y_g = abs(float(sdr.y_ground))
-    limit = data.service_defl_limit
+    limit = data.service_defl_limit if data.service_defl_limit is not None else 0.5
     passes = y_g <= limit
     margin = limit - y_g
 
@@ -1499,12 +1506,13 @@ def _render_min_embedment(pdf: PileReportPDF, data: ReportData):
     pdf.add_page()
     pdf.section_header("Minimum Embedment for Lateral Stability")
 
-    passes = data.pile_embedment >= me["L_min_ft"]
-    margin = data.pile_embedment - me["L_min_ft"]
+    embed = data.pile_embedment if data.pile_embedment is not None else 0.0
+    passes = embed >= me["L_min_ft"]
+    margin = embed - me["L_min_ft"]
     status = "PASS" if passes else "FAIL"
     _pass_fail_banner(
         pdf, passes,
-        f"{status} -- Embedment {data.pile_embedment:.1f} ft vs "
+        f"{status} -- Embedment {embed:.1f} ft vs "
         f"required {me['L_min_ft']:.1f} ft",
     )
 
@@ -1515,7 +1523,7 @@ def _render_min_embedment(pdf: PileReportPDF, data: ReportData):
     if me.get("FS_achieved"):
         pdf.kv_row("FS Achieved", f"{me['FS_achieved']:.2f}")
     pdf.kv_row("Method", me.get("method", "-"))
-    pdf.kv_row("Current Embedment", f"{data.pile_embedment:.1f}", "ft")
+    pdf.kv_row("Current Embedment", f"{embed:.1f}", "ft")
     pdf.kv_row("Margin", f"{margin:.1f}", "ft")
     pdf.card_end()
 
