@@ -42,7 +42,9 @@ if pile_type == "helical":
         )
 
     if st.button("Calculate Helical Capacity", type="primary"):
-        result = helical_torque_check(torque, shaft_size, FS_hel)
+        _torque = torque if torque is not None else 0.0
+        _FS = FS_hel if FS_hel is not None else 2.0
+        result = helical_torque_check(_torque, shaft_size, _FS)
         st.session_state["installation_qc_helical"] = result
 
     if "installation_qc_helical" in st.session_state:
@@ -85,12 +87,17 @@ else:
             help="Penetration per hammer blow, typically measured over last 10 blows.",
         )
 
-    st.metric("Hammer Energy", f"{W_r * h:,.0f} ft-lbs ({W_r * h / 1000:.1f} kip-ft)")
+    # Guard against None from cleared number_input fields
+    _W = W_r if W_r is not None else 0.0
+    _h = h if h is not None else 0.5
+    _s = s if s is not None else 0.01
+
+    st.metric("Hammer Energy", f"{_W * _h:,.0f} ft-lbs ({_W * _h / 1000:.1f} kip-ft)")
 
     if st.button("Run Dynamic Formulas", type="primary"):
-        r_enr = enr_formula(W_r, h, s)
-        r_gates = gates_formula(W_r, h, s)
-        r_fhwa = fhwa_modified_gates(W_r, h, s)
+        r_enr = enr_formula(_W, _h, _s)
+        r_gates = gates_formula(_W, _h, _s)
+        r_fhwa = fhwa_modified_gates(_W, _h, _s)
         st.session_state["installation_qc_driven"] = [r_enr, r_gates, r_fhwa]
 
     if "installation_qc_driven" in st.session_state:

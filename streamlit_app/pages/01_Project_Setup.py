@@ -188,16 +188,17 @@ if mfr_choice != _MFR_OPTIONS[0]:
                     ):
                         session_dict = topl_loads_to_session_dict(pi, loads)
                         # Override with user-edited values
-                        session_dict["dead_load"] = ed_dead
-                        session_dict["snow_load"] = ed_snow
-                        session_dict["wind_up"] = ed_up
-                        session_dict["wind_down"] = ed_down
-                        session_dict["wind_lateral"] = ed_lateral
-                        session_dict["wind_moment"] = ed_moment
-                        session_dict["seismic_lateral"] = ed_slat
-                        session_dict["seismic_vertical"] = ed_svert
-                        session_dict["seismic_moment"] = ed_smom
-                        session_dict["lever_arm"] = ed_lever
+                        # Guard against None from cleared number_input fields
+                        session_dict["dead_load"] = ed_dead if ed_dead is not None else 0.0
+                        session_dict["snow_load"] = ed_snow if ed_snow is not None else 0.0
+                        session_dict["wind_up"] = ed_up if ed_up is not None else 0.0
+                        session_dict["wind_down"] = ed_down if ed_down is not None else 0.0
+                        session_dict["wind_lateral"] = ed_lateral if ed_lateral is not None else 0.0
+                        session_dict["wind_moment"] = ed_moment if ed_moment is not None else 0.0
+                        session_dict["seismic_lateral"] = ed_slat if ed_slat is not None else 0.0
+                        session_dict["seismic_vertical"] = ed_svert if ed_svert is not None else 0.0
+                        session_dict["seismic_moment"] = ed_smom if ed_smom is not None else 0.0
+                        session_dict["lever_arm"] = ed_lever if ed_lever is not None else 4.0
 
                         for key, val in session_dict.items():
                             st.session_state[key] = val

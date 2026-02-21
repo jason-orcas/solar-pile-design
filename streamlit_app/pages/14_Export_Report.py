@@ -112,7 +112,7 @@ def _extract_topl_filename() -> str:
 
 def build_report_data() -> ReportData:
     """Assemble ReportData from Streamlit session state."""
-    section = st.session_state.get("section") or get_section(st.session_state.pile_section)
+    section = st.session_state.get("section") or get_section(st.session_state.get("pile_section", "W6x9"))
     nominal_section = st.session_state.get("nominal_section") or section
 
     # Build SoilProfile
@@ -144,12 +144,12 @@ def build_report_data() -> ReportData:
         project_notes=st.session_state.get("project_notes", ""),
         engineer_of_record=engineer_name,
         report_date=report_date.strftime("%B %d, %Y"),
-        top_deflection_limit=top_defl_limit,
-        grade_deflection_limit=grade_defl_limit,
-        bottom_deflection_limit=bottom_defl_limit,
+        top_deflection_limit=top_defl_limit if top_defl_limit is not None else 4.0,
+        grade_deflection_limit=grade_defl_limit if grade_defl_limit is not None else 1.0,
+        bottom_deflection_limit=bottom_defl_limit if bottom_defl_limit is not None else 0.1,
         section=section,
         pile_embedment=st.session_state.get("pile_embedment", 10.0),
-        above_grade=above_grade,
+        above_grade=above_grade if above_grade is not None else 4.0,
         pile_type=st.session_state.get("pile_type", "driven"),
         head_condition=st.session_state.get("head_condition", "free"),
         bending_axis=st.session_state.get("bending_axis", "strong"),

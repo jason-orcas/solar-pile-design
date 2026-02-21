@@ -25,10 +25,16 @@ if not st.session_state.get("soil_layers"):
 layers_obj = [build_soil_layer_from_dict(ld) for ld in st.session_state.soil_layers]
 profile = SoilProfile(layers=layers_obj, water_table_depth=st.session_state.water_table_depth)
 
+# --- Pile prerequisites ---
+pile_section_name = st.session_state.get("pile_section", None)
+if not pile_section_name:
+    st.warning("Select a pile section on the **Pile Properties** page first.")
+    st.stop()
+
 # --- Pile ---
-section = st.session_state.get("section") or get_section(st.session_state.pile_section)
-embedment = st.session_state.pile_embedment
-axis = st.session_state.bending_axis
+section = st.session_state.get("section") or get_section(pile_section_name)
+embedment = st.session_state.get("pile_embedment", 10.0)
+axis = st.session_state.get("bending_axis", "strong")
 
 # --- Analysis configuration ---
 st.subheader("Analysis Configuration")
@@ -63,6 +69,8 @@ with c2:
         min_value=0.0,
         value=st.session_state.get("wind_lateral", 1500.0), step=100.0, format="%.0f",
     )
+    if H_lateral is None:
+        H_lateral = 0.0
 with c3:
     M_ground = st.number_input(
         "Moment at ground M (ft-lbs)",
@@ -112,13 +120,20 @@ st.markdown("---")
 
 # --- Run Analysis ---
 if st.button("Run BNWF Analysis", type="primary"):
+    # Guard against None from cleared number_input fields
+    _V = V_axial if V_axial is not None else 0.0
+    _H = H_lateral if H_lateral is not None else 0.0
+    _M = M_ground if M_ground is not None else 0.0
+    _ps = pushover_steps if pushover_steps is not None else 20
+    _pm = pushover_max_mult if pushover_max_mult is not None else 3.0
+    _nm = n_modes if n_modes is not None else 3
     loads = BNWFLoadInput(
-        V_axial=V_axial,
-        H_lateral=H_lateral,
-        M_ground=M_ground,
+        V_axial=_V,
+        H_lateral=_H,
+        M_ground=_M,
         load_type=analysis_type,
-        pushover_steps=pushover_steps,
-        pushover_max_mult=pushover_max_mult,
+        pushover_steps=_ps,
+        pushover_max_mult=_pm,
     )
     options = BNWFOptions(
         n_elements=50,
@@ -129,7 +144,7 @@ if st.button("Run BNWF Analysis", type="primary"):
         solver=solver_choice,
         use_fiber_section=use_fiber,
         run_eigenvalue=run_eigen,
-        n_modes=n_modes,
+        n_modes=_nm,
         pile_type=pile_type,
     )
 

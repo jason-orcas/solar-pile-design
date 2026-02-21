@@ -228,6 +228,31 @@ When modifying calculation logic:
 
 - **Streamlit Cloud:** Connect repo, set main file to `streamlit_app/streamlit_app.py`
 
+### Streamlit `st.number_input` — None Guard Rule
+
+In current Streamlit versions, `st.number_input` returns `None` when the user clears the input field (backspaces the value). This causes `TypeError` crashes downstream in arithmetic, f-strings, and function calls.
+
+**Every `st.number_input` value MUST be guarded before use.** Patterns:
+
+```python
+# Pattern 1: Inline guard (for immediate use)
+x = st.number_input(...)
+if x is None:
+    x = DEFAULT
+
+# Pattern 2: Guard inside button handler (for deferred use)
+if st.button("Run"):
+    _x = x if x is not None else DEFAULT
+    some_function(_x)
+
+# Pattern 3: Session state assignment
+st.session_state.x = st.number_input(...)
+if st.session_state.x is None:
+    st.session_state.x = DEFAULT
+```
+
+**Also:** Pages that read `st.session_state.pile_section`, `st.session_state.pile_embedment`, or `st.session_state.bending_axis` must use `.get()` with defaults or add a prerequisite check with `st.stop()`, because these keys don't exist until the user visits the Pile Properties page.
+
 ---
 
 ## Formula Reference Library

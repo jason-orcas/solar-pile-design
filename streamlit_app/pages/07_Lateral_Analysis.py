@@ -25,10 +25,16 @@ if not st.session_state.get("soil_layers"):
 layers_obj = [build_soil_layer_from_dict(ld) for ld in st.session_state.soil_layers]
 profile = SoilProfile(layers=layers_obj, water_table_depth=st.session_state.water_table_depth)
 
+# --- Pile prerequisites ---
+pile_section_name = st.session_state.get("pile_section", None)
+if not pile_section_name:
+    st.warning("Select a pile section on the **Pile Properties** page first.")
+    st.stop()
+
 # --- Pile ---
-section = st.session_state.get("section") or get_section(st.session_state.pile_section)
-embedment = st.session_state.pile_embedment
-axis = st.session_state.bending_axis
+section = st.session_state.get("section") or get_section(pile_section_name)
+embedment = st.session_state.get("pile_embedment", 10.0)
+axis = st.session_state.get("bending_axis", "strong")
 EI = section.EI_strong if axis == "strong" else section.EI_weak
 My = section.My_strong if axis == "strong" else section.My_weak
 B = section.depth if axis == "strong" else section.width
@@ -40,11 +46,15 @@ with col1:
         "Lateral load H (lbs)", min_value=0.0,
         value=st.session_state.get("wind_lateral", 1500.0), step=100.0, format="%.0f",
     )
+    if H_applied is None:
+        H_applied = 0.0
 with col2:
     M_applied = st.number_input(
         "Moment at ground (ft-lbs)", min_value=0.0,
         value=H_applied * st.session_state.get("lever_arm", 4.0), step=500.0, format="%.0f",
     )
+    if M_applied is None:
+        M_applied = 0.0
 with col3:
     st.session_state.cyclic_loading = st.checkbox(
         "Cyclic loading (wind)", value=st.session_state.get("cyclic_loading", False),
@@ -232,16 +242,17 @@ with svc_c3:
     )
 
 if st.button("Check Service Deflection", key="btn_svc_defl"):
-    svc_M = svc_H * st.session_state.get("lever_arm", 4.0)
+    _svc_H = svc_H if svc_H is not None else 0.0
+    svc_M = _svc_H * st.session_state.get("lever_arm", 4.0)
     with st.spinner("Running service-level lateral analysis..."):
         svc_result = solve_lateral(
             profile=profile,
             pile_width=B,
             EI=EI,
             embedment=embedment,
-            H=svc_H,
+            H=_svc_H,
             M_ground=svc_M,
-            head_condition=st.session_state.head_condition,
+            head_condition=st.session_state.get("head_condition", "free"),
             cyclic=False,  # service loads are not cyclic-degraded
             n_elements=100,
         )
@@ -287,6 +298,8 @@ with me_c1:
         min_value=1.0, max_value=5.0, value=2.0, step=0.5, format="%.1f",
         help="H_required = H_applied * FS",
     )
+    if FS_lateral is None:
+        FS_lateral = 2.0
 with me_c2:
     H_req = st.number_input(
         "H required (lbs)",
@@ -302,7 +315,7 @@ if st.button("Find Minimum Embedment", key="btn_min_embed"):
         B=B,
         EI=EI,
         My=My,
-        H_required=H_req,
+        H_required=H_req if H_req is not None else 0.0,
         e=e_arm,
     )
     st.session_state["min_embed_result"] = min_embed

@@ -137,18 +137,25 @@ with st.expander("Add New Layer", expanded=len(st.session_state.soil_layers) == 
         st.caption("This model uses standard soil parameters defined above.")
 
     if st.button("Add Layer", type="primary"):
-        if new_bot <= new_top:
+        # Guard against None from cleared number_input fields
+        _top = new_top if new_top is not None else 0.0
+        _bot = new_bot if new_bot is not None else 0.5
+        _N = new_N if new_N is not None else 0
+        _gamma = new_gamma if new_gamma is not None else 0.0
+        _phi = new_phi if new_phi is not None else 0.0
+        _cu = new_cu if new_cu is not None else 0.0
+        if _bot <= _top:
             st.error("Bottom depth must be greater than top depth.")
         else:
             layer_data = {
-                "top_depth": new_top,
-                "thickness": new_bot - new_top,
+                "top_depth": _top,
+                "thickness": _bot - _top,
                 "soil_type": new_type,
                 "description": new_desc,
-                "N_spt": new_N,
-                "gamma": new_gamma if new_gamma > 0 else None,
-                "phi": new_phi if new_phi > 0 else None,
-                "c_u": new_cu if new_cu > 0 else None,
+                "N_spt": _N,
+                "gamma": _gamma if _gamma > 0 else None,
+                "phi": _phi if _phi > 0 else None,
+                "c_u": _cu if _cu > 0 else None,
             }
             # Add p-y model if not Auto
             if _sel_model != PYModel.AUTO:
@@ -158,7 +165,7 @@ with st.expander("Add New Layer", expanded=len(st.session_state.soil_layers) == 
                 if _v and _v > 0:
                     layer_data[_k] = _v
             st.session_state.soil_layers.append(layer_data)
-            st.success(f"Added layer: {new_desc or new_type} at {new_top}-{new_bot} ft")
+            st.success(f"Added layer: {new_desc or new_type} at {_top}-{_bot} ft")
             st.rerun()
 
 # Display existing layers
@@ -198,7 +205,8 @@ if st.session_state.soil_layers:
         del_idx = st.number_input("Layer # to delete", min_value=1, max_value=len(st.session_state.soil_layers), value=1)
     with col_del2:
         if st.button("Delete Layer"):
-            st.session_state.soil_layers.pop(del_idx - 1)
+            _del = del_idx if del_idx is not None else 1
+            st.session_state.soil_layers.pop(_del - 1)
             st.rerun()
 
     # --- Soil profile visualization ---
@@ -296,7 +304,7 @@ elif frost_method == "Stefan equation":
         )
     with fc2:
         stefan_soil = st.selectbox("Soil type (Stefan C)", list(STEFAN_C.keys()))
-    frost_in = frost_depth_stefan(F_I, stefan_soil)
+    frost_in = frost_depth_stefan(F_I if F_I is not None else 0.0, stefan_soil)
     region = ""
 else:
     frost_in = st.number_input(
@@ -304,6 +312,8 @@ else:
         value=st.session_state.get("frost_depth_in", 42.0),
         step=6.0, format="%.0f",
     )
+    if frost_in is None:
+        frost_in = 42.0
     region = ""
 
 st.session_state["frost_depth_in"] = frost_in

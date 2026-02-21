@@ -31,8 +31,13 @@ if not st.session_state.get("soil_layers"):
     st.warning("Define soil layers on the Soil Profile page first.")
     st.stop()
 
-section = st.session_state.get("section") or get_section(st.session_state.pile_section)
-embedment = st.session_state.pile_embedment
+pile_section_name = st.session_state.get("pile_section", None)
+if not pile_section_name:
+    st.warning("Select a pile section on the **Pile Properties** page first.")
+    st.stop()
+
+section = st.session_state.get("section") or get_section(pile_section_name)
+embedment = st.session_state.get("pile_embedment", 10.0)
 pile_width = section.depth  # governing dimension (in)
 
 # ---------------------------------------------------------------------------
@@ -71,10 +76,13 @@ with st.expander("Grid Generator", expanded=not has_piles):
         )
 
     if st.button("Generate Grid", type="primary"):
-        n_rows = st.session_state.group_n_rows
-        n_cols = st.session_state.group_n_cols
-        x_sp_ft = st.session_state.group_x_spacing / 12.0
-        y_sp_ft = st.session_state.group_y_spacing / 12.0
+        # Guard against None from cleared number_input fields
+        n_rows = st.session_state.get("group_n_rows") or 1
+        n_cols = st.session_state.get("group_n_cols") or 1
+        _x_sp = st.session_state.get("group_x_spacing") or 36.0
+        _y_sp = st.session_state.get("group_y_spacing") or 36.0
+        x_sp_ft = _x_sp / 12.0
+        y_sp_ft = _y_sp / 12.0
         piles = generate_pile_grid(n_rows, n_cols, x_sp_ft, y_sp_ft)
         st.session_state["group_piles"] = [
             {"id": p.id, "x": p.x, "y": p.y, "label": p.label} for p in piles
@@ -202,8 +210,8 @@ with cap_c2:
         value=st.session_state.get("group_Q_tens", default_tens),
         step=500.0, format="%.0f", key="group_Q_tens_input",
     )
-st.session_state["group_Q_comp"] = Q_comp
-st.session_state["group_Q_tens"] = Q_tens
+st.session_state["group_Q_comp"] = Q_comp if Q_comp is not None else 0.0
+st.session_state["group_Q_tens"] = Q_tens if Q_tens is not None else 0.0
 
 # ---------------------------------------------------------------------------
 # Section D: Head Condition

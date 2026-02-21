@@ -19,13 +19,19 @@ if not st.session_state.get("soil_layers"):
     st.warning("Define soil layers on the Soil Profile page first.")
     st.stop()
 
+# --- Pile prerequisites ---
+pile_section_name = st.session_state.get("pile_section", None)
+if not pile_section_name:
+    st.warning("Select a pile section on the **Pile Properties** page first.")
+    st.stop()
+
 # --- Build profile ---
 layers_obj = [build_soil_layer_from_dict(ld) for ld in st.session_state.soil_layers]
 profile = SoilProfile(layers=layers_obj, water_table_depth=st.session_state.water_table_depth)
 
 # --- Pile properties ---
-section = st.session_state.get("section") or get_section(st.session_state.pile_section)
-embedment = st.session_state.pile_embedment
+section = st.session_state.get("section") or get_section(pile_section_name)
+embedment = st.session_state.get("pile_embedment", 10.0)
 
 # --- Analysis settings ---
 col1, col2, col3 = st.columns(3)
@@ -41,10 +47,14 @@ with col2:
     st.session_state.FS_compression = st.number_input(
         "FS Compression", value=st.session_state.get("FS_compression", 2.5), step=0.5, format="%.1f",
     )
+    if st.session_state.FS_compression is None:
+        st.session_state.FS_compression = 2.5
 with col3:
     st.session_state.FS_tension = st.number_input(
         "FS Tension", value=st.session_state.get("FS_tension", 3.0), step=0.5, format="%.1f",
     )
+    if st.session_state.FS_tension is None:
+        st.session_state.FS_tension = 3.0
 
 # --- Run analysis ---
 if st.button("Run Axial Analysis", type="primary"):

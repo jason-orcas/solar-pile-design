@@ -57,6 +57,8 @@ with col2:
         value=st.session_state.get("pile_embedment", 10.0),
         step=0.5, format="%.1f",
     )
+    if st.session_state.pile_embedment is None:
+        st.session_state.pile_embedment = 10.0
 
     st.session_state.pile_type = st.selectbox(
         "Installation Method",
@@ -127,7 +129,7 @@ if corrosion_enabled:
         st.session_state["corrosion_coating"] = coating
 
     # Compute corrosion parameters
-    cp = compute_corrosion_params(design_life, environment, coating)
+    cp = compute_corrosion_params(design_life if design_life is not None else 35.0, environment, coating)
     st.session_state["corrosion_rate"] = cp.corrosion_rate
     st.session_state["corrosion_t_loss"] = cp.t_loss_per_side
 

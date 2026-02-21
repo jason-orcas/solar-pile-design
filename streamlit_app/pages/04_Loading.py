@@ -82,6 +82,15 @@ with col3:
         value=st.session_state.get("lever_arm", 4.0), step=0.5, format="%.1f",
     )
 
+# Guard against None from cleared number_input fields
+for _k, _d in [("dead_load", 0.0), ("live_load", 0.0), ("snow_load", 0.0),
+               ("wind_down", 0.0), ("wind_up", 0.0), ("wind_lateral", 0.0),
+               ("wind_moment", 0.0), ("seismic_lateral", 0.0),
+               ("seismic_vertical", 0.0), ("seismic_moment", 0.0),
+               ("lever_arm", 4.0)]:
+    if st.session_state.get(_k) is None:
+        st.session_state[_k] = _d
+
 st.markdown("---")
 
 # --- Optional calculators ---
@@ -95,7 +104,13 @@ with st.expander("Wind Pressure Calculator (ASCE 7)"):
         K_d = st.number_input("K_d (directionality)", value=0.85, step=0.05, format="%.2f")
         K_e = st.number_input("K_e (elevation factor)", value=1.0, step=0.05, format="%.2f")
 
-    q_z = wind_velocity_pressure(V_wind, K_z, K_zt, K_d, K_e)
+    q_z = wind_velocity_pressure(
+        V_wind if V_wind is not None else 0.0,
+        K_z if K_z is not None else 0.85,
+        K_zt if K_zt is not None else 1.0,
+        K_d if K_d is not None else 0.85,
+        K_e if K_e is not None else 1.0,
+    )
     st.metric("Velocity Pressure q_z (psf)", f"{q_z:.1f}")
 
 with st.expander("Seismic C_s Calculator"):
@@ -104,7 +119,10 @@ with st.expander("Seismic C_s Calculator"):
         S_DS = st.number_input("S_DS (g)", value=0.5, step=0.05, format="%.2f")
     with sc2:
         R_seis = st.number_input("R (response mod.)", value=2.0, step=0.5, format="%.1f")
-    C_s = seismic_base_shear_coeff(S_DS, R_seis)
+    C_s = seismic_base_shear_coeff(
+        S_DS if S_DS is not None else 0.0,
+        R_seis if R_seis is not None else 2.0,
+    )
     st.metric("C_s", f"{C_s:.4f}")
 
 with st.expander("Snow Load Calculator"):
@@ -115,7 +133,12 @@ with st.expander("Snow Load Calculator"):
     with snc2:
         C_t = st.number_input("C_t (thermal)", value=1.2, step=0.1, format="%.1f")
         I_s = st.number_input("I_s (importance)", value=1.0, step=0.1, format="%.1f")
-    p_f = snow_load(p_g, C_e, C_t, I_s)
+    p_f = snow_load(
+        p_g if p_g is not None else 0.0,
+        C_e if C_e is not None else 0.8,
+        C_t if C_t is not None else 1.2,
+        I_s if I_s is not None else 1.0,
+    )
     st.metric("Design snow load p_f (psf)", f"{p_f:.1f}")
 
 st.markdown("---")

@@ -69,6 +69,14 @@ with col2:
         value=1.0, step=0.5, format="%.1f",
     )
 
+# Guard against None from cleared number_input fields
+if embed_min is None:
+    embed_min = 5.0
+if embed_max is None:
+    embed_max = 25.0
+if embed_step is None:
+    embed_step = 1.0
+
 with col3:
     deflection_limit = st.number_input(
         "Deflection Limit (in)", min_value=0.1, max_value=5.0,
@@ -153,7 +161,7 @@ if st.button("Run Optimization Sweep", type="primary"):
         axial_method=st.session_state.get("axial_method", "auto"),
         FS_compression=st.session_state.get("FS_compression", 2.5),
         FS_tension=st.session_state.get("FS_tension", 3.0),
-        deflection_limit=deflection_limit,
+        deflection_limit=deflection_limit if deflection_limit is not None else 1.0,
         design_method=design_method,
         corrosion_t_loss=t_loss,
         n_elements=50,
