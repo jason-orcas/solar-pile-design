@@ -461,7 +461,11 @@ if "group_result" in st.session_state and isinstance(
             range=[min(all_y) - pad, max(all_y) + pad],
         ),
         height=500,
-        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
+        legend=dict(
+            orientation="h",
+            yanchor="top", y=-0.15,
+            xanchor="center", x=0.5,
+        ),
     )
     st.plotly_chart(fig, width="stretch")
 
