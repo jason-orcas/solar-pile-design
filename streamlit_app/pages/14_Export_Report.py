@@ -110,6 +110,12 @@ def _extract_topl_filename() -> str:
         return parts[1]
     return ""
 
+def _ss(key: str, default=0.0):
+    """Get session state value, returning default if missing OR None."""
+    val = st.session_state.get(key)
+    return val if val is not None else default
+
+
 def build_report_data() -> ReportData:
     """Assemble ReportData from Streamlit session state."""
     section = st.session_state.get("section") or get_section(st.session_state.get("pile_section", "W6x9"))
@@ -122,19 +128,19 @@ def build_report_data() -> ReportData:
         water_table_depth=st.session_state.get("water_table_depth"),
     )
 
-    # Build LoadInput
+    # Build LoadInput (guard against None values in session state)
     load_input = LoadInput(
-        dead=st.session_state.get("dead_load", 0),
-        live=st.session_state.get("live_load", 0),
-        snow=st.session_state.get("snow_load", 0),
-        wind_down=st.session_state.get("wind_down", 0),
-        wind_up=st.session_state.get("wind_up", 0),
-        wind_lateral=st.session_state.get("wind_lateral", 0),
-        wind_moment=st.session_state.get("wind_moment", 0),
-        seismic_vertical=st.session_state.get("seismic_vertical", 0),
-        seismic_lateral=st.session_state.get("seismic_lateral", 0),
-        seismic_moment=st.session_state.get("seismic_moment", 0),
-        lever_arm=st.session_state.get("lever_arm", 4.0),
+        dead=_ss("dead_load", 0.0),
+        live=_ss("live_load", 0.0),
+        snow=_ss("snow_load", 0.0),
+        wind_down=_ss("wind_down", 0.0),
+        wind_up=_ss("wind_up", 0.0),
+        wind_lateral=_ss("wind_lateral", 0.0),
+        wind_moment=_ss("wind_moment", 0.0),
+        seismic_vertical=_ss("seismic_vertical", 0.0),
+        seismic_lateral=_ss("seismic_lateral", 0.0),
+        seismic_moment=_ss("seismic_moment", 0.0),
+        lever_arm=_ss("lever_arm", 4.0),
     )
 
     return ReportData(
