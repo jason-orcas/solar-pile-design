@@ -153,7 +153,7 @@ st.subheader("Load Application Points")
 st.caption("Each load has a position (X, Y) and full force components.")
 
 if not st.session_state.get("group_loads"):
-    pile_objs = [PileLocation(**p) for p in updated_piles]
+    pile_objs = [PileLocation(**p) for p in edited_piles.to_dict("records")]
     cx, cy = compute_pile_group_centroid(pile_objs)
     st.session_state["group_loads"] = [
         {"id": 1, "x": round(cx, 2), "y": round(cy, 2),

@@ -309,14 +309,24 @@ elif frost_method == "Stefan equation":
 else:
     frost_in = st.number_input(
         "Frost depth (in)", min_value=0.0,
-        value=st.session_state.get("frost_depth_in", 42.0),
+        value=42.0,
         step=6.0, format="%.0f",
+        key="frost_depth_manual",
     )
     if frost_in is None:
         frost_in = 42.0
     region = ""
 
-st.session_state["frost_depth_in"] = frost_in
+# Adfreeze bond strength input
+tau_af_psi = st.number_input(
+    "Adfreeze bond strength, τ_af (psi)",
+    min_value=0.0, value=10.0, step=0.5, format="%.1f",
+    help="Typical values: 5–15 psi for steel in frozen sand/gravel, "
+         "10–25 psi for frozen silt, 15–40+ psi for ice-rich frozen clay.",
+    key="tau_af_psi",
+)
+if tau_af_psi is None:
+    tau_af_psi = 10.0
 
 embedment = st.session_state.get("pile_embedment", 10.0)
 section_obj = None
@@ -332,6 +342,7 @@ result_frost = frost_check(
     frost_depth_in=frost_in,
     embedment_ft=embedment,
     pile_perimeter_in=perimeter,
+    tau_af_psi=tau_af_psi,
     method=frost_method,
     region=region if frost_method == "Regional lookup" else "",
 )
@@ -352,4 +363,5 @@ else:
     )
 
 if result_frost.adfreeze_force_lbs:
-    st.info(f"Estimated adfreeze uplift force: {result_frost.adfreeze_force_lbs:,.0f} lbs")
+    st.info(f"Estimated adfreeze uplift force: {result_frost.adfreeze_force_lbs:,.0f} lbs "
+            f"(τ_af = {tau_af_psi:.1f} psi)")
