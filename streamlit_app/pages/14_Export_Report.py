@@ -200,6 +200,7 @@ def build_report_data() -> ReportData:
         liq_result=st.session_state.get("liq_result"),
         installation_qc_driven=st.session_state.get("installation_qc_driven"),
         installation_qc_helical=st.session_state.get("installation_qc_helical"),
+        cable_sag_result=st.session_state.get("cable_sag_result"),
     )
 
 

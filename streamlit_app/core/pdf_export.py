@@ -30,6 +30,7 @@ from .frost import FrostCheckResult
 from .structural import AISCUnityResult
 from .liquefaction import LiquefactionResult, LiquefactionLayerResult
 from .installation import DrivenPileQCResult, HelicalQCResult
+from .cable_sag import CableSagResult
 
 
 # ============================================================================
@@ -125,6 +126,9 @@ class ReportData:
     # Installation QC
     installation_qc_driven: list | None = None   # list[DrivenPileQCResult]
     installation_qc_helical: Any | None = None   # HelicalQCResult
+
+    # Cable management
+    cable_sag_result: CableSagResult | None = None
 
 
 # ============================================================================
@@ -1685,6 +1689,90 @@ def _render_installation_qc(pdf: PileReportPDF, data: ReportData):
             pdf.card_end()
 
 
+def _render_cable_sag(pdf: PileReportPDF, data: ReportData):
+    """Cable Management & Sag Analysis section."""
+    csr = data.cable_sag_result
+    if csr is None:
+        return
+
+    pdf.add_page()
+    pdf.section_header("Cable Management & Sag Analysis")
+
+    passes = csr.passes
+    req_clr = max(csr.ground_clearance_req_in, csr.flood_freeboard_in)
+    status = "PASS" if passes else "FAIL"
+    _pass_fail_banner(
+        pdf, passes,
+        f"{status} -- Midspan clearance {csr.clearance_at_midspan_in:.1f} in "
+        f"vs required {req_clr:.0f} in",
+    )
+
+    # System & configuration
+    pdf.card_start()
+    pdf.sub_header("Configuration")
+    pdf.kv_row("Cable System", csr.system)
+    pdf.kv_row("Span", f"{csr.span_ft:.1f}", "ft")
+    pdf.kv_row("Wire Weight", f"{csr.wire_weight_plf:.2f}", "lb/ft")
+    pdf.kv_row("Temperature Range", f"{csr.temp_min_f:.0f} to {csr.temp_max_f:.0f}", "deg F")
+    pdf.card_end()
+
+    # Geometry
+    pdf.ln(3)
+    pdf.card_start()
+    pdf.sub_header("Bracket & Hanger Geometry")
+    pdf.kv_row("Pile Reveal (above grade)", f"{csr.actual_reveal_in:.1f}", "in")
+    pdf.kv_row("Pile-Top Clearance", f"{csr.pile_top_clearance_in:.1f}", "in")
+    pdf.kv_row("Bracket Drop", f"{csr.bracket_drop_in:.1f}", "in")
+    pdf.kv_row("Hanger Height", f"{csr.hanger_height_in:.1f}", "in")
+    pdf.card_end()
+
+    # Sag & clearance
+    pdf.ln(3)
+    pdf.card_start()
+    pdf.sub_header("Sag & Clearance")
+    pdf.kv_row("Design Sag", f"{csr.sag_in:.1f}", "in")
+    pdf.kv_row("Clearance at Midspan", f"{csr.clearance_at_midspan_in:.1f}", "in")
+    pdf.kv_row("Required Clearance", f"{req_clr:.0f}", "in")
+    pdf.kv_row("Min Pile Reveal Required", f"{csr.min_reveal_in:.0f} in ({csr.min_reveal_ft:.1f} ft)")
+    pdf.kv_row("Actual Pile Reveal", f"{csr.actual_reveal_in:.0f} in ({csr.actual_reveal_ft:.1f} ft)")
+    pdf.card_end()
+
+    # Pier loads
+    pdf.ln(3)
+    pdf.card_start()
+    pdf.sub_header("Dead-End Pier Loads (ASD)")
+    pdf.styled_table(
+        headers=["Direction", "Load (lbs)"],
+        rows=[
+            ["Transverse (wind)", f"{csr.H_transverse_lbs:.0f}"],
+            ["Longitudinal (tension)", f"{csr.H_longitudinal_lbs:.0f}"],
+            ["Vertical (gravity)", f"{csr.V_vertical_lbs:.0f}"],
+        ],
+        col_widths=[60, 40],
+    )
+    if csr.system == "CAB":
+        pdf.set_font("Helvetica", "I", 8)
+        pdf.set_x(pdf.l_margin + 5)
+        pdf.multi_cell(
+            0, 4,
+            "Note: Mid-support piers receive 2x Transverse and 2x Vertical; "
+            "Longitudinal = 0. Double all values for two parallel messenger systems.",
+        )
+    pdf.card_end()
+
+    # Notes
+    if csr.notes:
+        pdf.ln(3)
+        pdf.card_start()
+        pdf.sub_header("Notes")
+        pdf.set_font("Helvetica", "", 8)
+        for n in csr.notes:
+            pdf.set_x(pdf.l_margin + 5)
+            pdf.multi_cell(0, 4, PileReportPDF._safe_text(f"- {n}"))
+            pdf.ln(1)
+        pdf.card_end()
+
+
 def _render_warnings(pdf: PileReportPDF, data: ReportData):
     """Warnings and Alerts section."""
     pdf.add_page()
@@ -1773,6 +1861,7 @@ def _section_available(section_num: str, data: ReportData) -> bool:
         "11": data.group_result is not None and data.group_result.n_piles > 1,
         "12": data.liq_result is not None,
         "13": data.installation_qc_driven is not None or data.installation_qc_helical is not None,
+        "13A": data.cable_sag_result is not None,
         "14": True,
     }
     return checks.get(section_num, False)
@@ -1816,6 +1905,7 @@ def generate_report(data: ReportData, logo_path: str | None = None) -> bytes:
     _render_group_summary(pdf, data)
     _render_liquefaction(pdf, data)
     _render_installation_qc(pdf, data)
+    _render_cable_sag(pdf, data)
     _render_warnings(pdf, data)
 
     return bytes(pdf.output())
