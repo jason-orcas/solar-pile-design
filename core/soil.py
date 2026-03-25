@@ -122,6 +122,11 @@ class SoilLayer:
     void_ratio: float | None = None      # Void ratio
     C_u_uniformity: float | None = None  # Coefficient of uniformity (D60/D10)
 
+    # Explicit axial design parameters (override correlation-derived values)
+    f_s_downward: float | None = None    # Skin friction for compression (psf)
+    f_s_uplift: float | None = None      # Skin friction for uplift (psf)
+    q_b: float | None = None             # End bearing capacity (psf)
+
     # User-input p-y curve data
     user_py_data: list | None = None     # [{"y": [...], "p": [...], "depth_ft": ...}, ...]
 
@@ -415,6 +420,9 @@ def build_soil_layer_from_dict(ld: dict) -> SoilLayer:
         void_ratio=ld.get("void_ratio"),
         C_u_uniformity=ld.get("C_u_uniformity"),
         user_py_data=ld.get("user_py_data"),
+        f_s_downward=ld.get("f_s_downward"),
+        f_s_uplift=ld.get("f_s_uplift"),
+        q_b=ld.get("q_b"),
     )
 
 

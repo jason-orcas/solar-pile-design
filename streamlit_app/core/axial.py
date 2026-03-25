@@ -131,6 +131,8 @@ def axial_capacity(
 
     # --- Skin friction integration ---
     depths = _frange(dz, embedment_depth, dz)
+    Q_s_uplift_total = 0.0   # separate uplift skin friction when explicit values differ
+    has_explicit_uplift = False
     for z in depths:
         layer = profile.layer_at_depth(z)
         if layer is None:
@@ -138,6 +140,27 @@ def axial_capacity(
 
         sigma_v = profile.effective_stress_at(z)
         A_s = pile_perimeter * dz * 12.0  # in^2 (perimeter in inches * dz in ft * 12)
+
+        # Check for explicit skin friction values (override correlations)
+        if layer.f_s_downward is not None:
+            f_s = layer.f_s_downward  # psf
+            f_s_psi = f_s / 144.0
+            dQ = f_s_psi * A_s
+            # Track uplift separately if provided
+            f_s_up = layer.f_s_uplift if layer.f_s_uplift is not None else f_s
+            dQ_up = (f_s_up / 144.0) * A_s
+            Q_s_uplift_total += dQ_up
+            has_explicit_uplift = layer.f_s_uplift is not None or has_explicit_uplift
+            layer_contributions.append({
+                "depth_ft": z,
+                "layer": layer.description or layer.soil_type.value,
+                "method": "Explicit",
+                "f_s_psf": round(f_s, 1),
+                "f_s_uplift_psf": round(f_s_up, 1),
+                "dQ_lbs": round(dQ, 0),
+            })
+            Q_s_total += dQ
+            continue
 
         is_cohesive = layer.soil_type in (SoilType.CLAY, SoilType.SILT, SoilType.ORGANIC)
         use_method = method
@@ -210,34 +233,43 @@ def axial_capacity(
     # --- End bearing ---
     tip_layer = profile.layer_at_depth(embedment_depth - 0.01)
     if tip_layer is not None:
-        sigma_v_tip = profile.effective_stress_at(embedment_depth)
-        is_tip_cohesive = tip_layer.soil_type in (
-            SoilType.CLAY, SoilType.SILT, SoilType.ORGANIC
-        )
-
-        if is_tip_cohesive:
-            c_u_tip = tip_layer.get_cu()
-            N_c = 9.0
-            q_b = N_c * c_u_tip  # psf
-            notes.append(f"End bearing: N_c * c_u = {N_c} * {c_u_tip:.0f} psf")
+        # Check for explicit end bearing
+        if tip_layer.q_b is not None:
+            q_b = tip_layer.q_b  # psf
+            notes.append(f"End bearing: explicit q_b = {q_b:.0f} psf")
         else:
-            phi_tip = tip_layer.get_phi(sigma_v_tip)
-            N_q = _meyerhof_Nq(phi_tip)
-            q_b = sigma_v_tip * N_q  # psf
-            # Apply limiting value
-            q_b_max = _meyerhof_qb_limit(phi_tip) * 2000.0  # tsf -> psf
-            q_b = min(q_b, q_b_max)
-            notes.append(
-                f"End bearing: sigma'_v * N_q = {sigma_v_tip:.0f} * {N_q:.1f} = {q_b:.0f} psf"
-                f" (limit {q_b_max:.0f} psf)"
+            sigma_v_tip = profile.effective_stress_at(embedment_depth)
+            is_tip_cohesive = tip_layer.soil_type in (
+                SoilType.CLAY, SoilType.SILT, SoilType.ORGANIC
             )
+
+            if is_tip_cohesive:
+                c_u_tip = tip_layer.get_cu()
+                N_c = 9.0
+                q_b = N_c * c_u_tip  # psf
+                notes.append(f"End bearing: N_c * c_u = {N_c} * {c_u_tip:.0f} psf")
+            else:
+                phi_tip = tip_layer.get_phi(sigma_v_tip)
+                N_q = _meyerhof_Nq(phi_tip)
+                q_b = sigma_v_tip * N_q  # psf
+                q_b_max = _meyerhof_qb_limit(phi_tip) * 2000.0  # tsf -> psf
+                q_b = min(q_b, q_b_max)
+                notes.append(
+                    f"End bearing: sigma'_v * N_q = {sigma_v_tip:.0f} * {N_q:.1f} = {q_b:.0f} psf"
+                    f" (limit {q_b_max:.0f} psf)"
+                )
 
         q_b_psi = q_b / 144.0
         Q_b = q_b_psi * pile_tip_area  # lbs
 
     # --- Assemble results ---
     Q_ult_comp = Q_s_total + Q_b
-    Q_ult_tens = Q_s_total * tension_factor
+    # Use explicit uplift friction totals when available
+    if has_explicit_uplift:
+        Q_ult_tens = Q_s_uplift_total
+        notes.append("Tension uses explicit uplift skin friction values")
+    else:
+        Q_ult_tens = Q_s_total * tension_factor
 
     notes.append(f"Skin friction: {Q_s_total:.0f} lbs")
     notes.append(f"End bearing: {Q_b:.0f} lbs")

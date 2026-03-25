@@ -14,12 +14,24 @@ from core.loads import (
 
 st.header("Loading")
 
-# --- Design method ---
-st.session_state.design_method = st.radio(
-    "Design Method", ["LRFD", "ASD", "Both"],
-    index=["LRFD", "ASD", "Both"].index(st.session_state.get("design_method", "LRFD")),
-    horizontal=True,
-)
+# --- Design method and code version ---
+_lc1, _lc2 = st.columns(2)
+with _lc1:
+    st.session_state.design_method = st.radio(
+        "Design Method", ["LRFD", "ASD", "Both"],
+        index=["LRFD", "ASD", "Both"].index(st.session_state.get("design_method", "LRFD")),
+        horizontal=True,
+    )
+with _lc2:
+    _asce_options = ["ASCE 7-22", "ASCE 7-16", "ASCE 7-10"]
+    _asce_default = st.session_state.get("asce7_version", "ASCE 7-22")
+    _asce_idx = _asce_options.index(_asce_default) if _asce_default in _asce_options else 0
+    st.session_state["asce7_version"] = st.selectbox(
+        "Code Edition", _asce_options, index=_asce_idx,
+        help="Selects the applicable ASCE 7 edition. Load combination factors are "
+             "identical across 7-10/7-16/7-22; the main difference is wind speed maps "
+             "and the K_e elevation factor (new in 7-22).",
+    )
 
 st.markdown("---")
 

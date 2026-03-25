@@ -66,13 +66,39 @@ with st.expander("Add New Layer", expanded=len(st.session_state.soil_layers) == 
     # Row 3: Soil parameters
     r3a, r3b, r3c, r3d = st.columns(4)
     with r3a:
-        new_N = st.number_input("SPT N-value", min_value=0, value=15, step=1, key="new_N")
+        new_N = st.number_input(
+            "SPT N-value", min_value=0, value=0, step=1, key="new_N",
+            help="Raw SPT blow count. Optional when explicit skin friction and end bearing "
+                 "are provided below. Used for parameter estimation and liquefaction screening.",
+        )
     with r3b:
         new_gamma = st.number_input("gamma (pcf)", min_value=0.0, value=0.0, step=5.0, format="%.0f", key="new_gamma", help="Unit weight. 0 = auto from soil type.")
     with r3c:
         new_phi = st.number_input("phi (deg)", min_value=0.0, value=0.0, step=1.0, format="%.0f", key="new_phi", help="Friction angle. 0 = auto from N-value.")
     with r3d:
         new_cu = st.number_input("c_u (psf)", min_value=0.0, value=0.0, step=100.0, format="%.0f", key="new_cu", help="Undrained shear strength. 0 = auto from N-value.")
+
+    # Row 4: Explicit axial design parameters (optional — override correlations)
+    st.caption("Axial design parameters *(optional — leave 0 to use correlations from N-value)*")
+    r4a, r4b, r4c = st.columns(3)
+    with r4a:
+        new_fs_down = st.number_input(
+            "Skin friction, downward (psf)", min_value=0.0, value=0.0,
+            step=50.0, format="%.0f", key="new_fs_down",
+            help="Explicit skin friction for compression. 0 = derive from soil parameters.",
+        )
+    with r4b:
+        new_fs_up = st.number_input(
+            "Skin friction, uplift (psf)", min_value=0.0, value=0.0,
+            step=50.0, format="%.0f", key="new_fs_up",
+            help="Explicit skin friction for tension/uplift. 0 = derive from soil parameters.",
+        )
+    with r4c:
+        new_qb = st.number_input(
+            "End bearing (psf)", min_value=0.0, value=0.0,
+            step=100.0, format="%.0f", key="new_qb",
+            help="Explicit end bearing capacity. 0 = derive from soil parameters. Only used at pile tip layer.",
+        )
 
     # --- Model-specific parameters (shown when non-Auto model selected) ---
     _sel_model = PYModel(new_py_model)
@@ -147,15 +173,21 @@ with st.expander("Add New Layer", expanded=len(st.session_state.soil_layers) == 
         if _bot <= _top:
             st.error("Bottom depth must be greater than top depth.")
         else:
+            _fs_down = new_fs_down if new_fs_down is not None else 0.0
+            _fs_up = new_fs_up if new_fs_up is not None else 0.0
+            _qb_val = new_qb if new_qb is not None else 0.0
             layer_data = {
                 "top_depth": _top,
                 "thickness": _bot - _top,
                 "soil_type": new_type,
                 "description": new_desc,
-                "N_spt": _N,
+                "N_spt": _N if _N > 0 else None,
                 "gamma": _gamma if _gamma > 0 else None,
                 "phi": _phi if _phi > 0 else None,
                 "c_u": _cu if _cu > 0 else None,
+                "f_s_downward": _fs_down if _fs_down > 0 else None,
+                "f_s_uplift": _fs_up if _fs_up > 0 else None,
+                "q_b": _qb_val if _qb_val > 0 else None,
             }
             # Add p-y model if not Auto
             if _sel_model != PYModel.AUTO:
@@ -193,6 +225,9 @@ if st.session_state.soil_layers:
             "phi' (deg)": f"{lo.get_phi(sigma_v):.1f}" if lo.get_phi(sigma_v) > 0 else "-",
             "c_u (psf)": f"{lo.get_cu():.0f}" if lo.get_cu() > 0 else "-",
             "sigma'_v mid (psf)": f"{sigma_v:.0f}",
+            "f_s↓ (psf)": f"{ld['f_s_downward']:.0f}" if ld.get("f_s_downward") else "-",
+            "f_s↑ (psf)": f"{ld['f_s_uplift']:.0f}" if ld.get("f_s_uplift") else "-",
+            "q_b (psf)": f"{ld['q_b']:.0f}" if ld.get("q_b") else "-",
             "p-y Model": ld.get("py_model", "Auto") or "Auto",
         })
 

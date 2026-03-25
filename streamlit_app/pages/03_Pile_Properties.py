@@ -27,6 +27,11 @@ with col1:
     st.session_state.pile_section = section_name
 
     nominal = get_section(section_name)
+    # Apply user-selected steel grade
+    _fy = st.session_state.get("steel_grade_ksi", 50)
+    if _fy and _fy != nominal.fy:
+        from dataclasses import replace
+        nominal = replace(nominal, fy=float(_fy))
     st.session_state["nominal_section"] = nominal
 
     # Display nominal section properties
@@ -82,6 +87,16 @@ with col2:
         index=["strong", "weak"].index(
             st.session_state.get("bending_axis", "strong")
         ),
+    )
+
+    _grade_options = [50, 55, 60, 65]
+    _grade_default = st.session_state.get("steel_grade_ksi", 50)
+    _grade_idx = _grade_options.index(_grade_default) if _grade_default in _grade_options else 0
+    st.session_state["steel_grade_ksi"] = st.selectbox(
+        "Steel Grade — F_y (ksi)",
+        _grade_options,
+        index=_grade_idx,
+        format_func=lambda x: f"Grade {x} ({x} ksi)",
     )
 
 st.markdown("---")
