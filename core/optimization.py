@@ -17,6 +17,7 @@ from .sections import SteelSection, get_sections_by_family, corroded_section
 from .axial import axial_capacity
 from .lateral import solve_lateral
 from .loads import LoadCase
+from .frost import frost_check
 
 
 @dataclass
@@ -33,19 +34,29 @@ class OptimizationCandidate:
     deflection_in: float
     deflection_limit_in: float
 
+    # Frost / adfreeze
+    frost_min_embed_ft: float = 0.0
+    adfreeze_force_lbs: float = 0.0
+    passes_frost: bool = True
+
+    # Min embedment for lateral stability
+    min_embed_lateral_ft: float = 0.0
+    passes_min_embed: bool = True
+
     # Individual pass/fail
-    passes_axial_comp: bool
-    passes_axial_tens: bool
-    passes_lateral_struct: bool
-    passes_deflection: bool
-    passes_all: bool
+    passes_axial_comp: bool = True
+    passes_axial_tens: bool = True
+    passes_lateral_struct: bool = True
+    passes_deflection: bool = True
+    passes_all: bool = True
 
     # Governing load case names
-    governing_comp_case: str
-    governing_tens_case: str
-    governing_lateral_case: str
+    governing_comp_case: str = ""
+    governing_tens_case: str = ""
+    governing_lateral_case: str = ""
+    governing_check: str = ""  # which check controls the design
 
-    lateral_converged: bool
+    lateral_converged: bool = True
     notes: list[str] = field(default_factory=list)
 
 
@@ -119,6 +130,10 @@ def run_optimization_sweep(
     design_method: str = "LRFD",
     corrosion_t_loss: float = 0.0,
     n_elements: int = 50,
+    frost_depth_in: float = 0.0,
+    tau_af_psi: float = 10.0,
+    FS_lateral: float = 2.0,
+    fy_ksi: float = 50.0,
     progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> OptimizationResult:
     """Sweep all sections in a family across embedment depths.
@@ -271,12 +286,66 @@ def run_optimization_sweep(
             except Exception as e:
                 notes.append(f"Lateral error: {e}")
 
+            # --- Frost / adfreeze check ---
+            frost_min_ft = 0.0
+            adfreeze_lbs = 0.0
+            p_frost = True
+            if frost_depth_in > 0:
+                fr = frost_check(
+                    frost_depth_in=frost_depth_in,
+                    embedment_ft=emb,
+                    pile_perimeter_in=active_sec.perimeter,
+                    tau_af_psi=tau_af_psi,
+                )
+                frost_min_ft = fr.min_embedment_ft
+                adfreeze_lbs = fr.adfreeze_force_lbs or 0.0
+                p_frost = fr.passes
+                # Also check that tension capacity exceeds adfreeze
+                if adfreeze_lbs > 0 and 'ax' in dir():
+                    try:
+                        if design_method == "LRFD":
+                            if ax.Q_r_tension > 0 and adfreeze_lbs > ax.Q_r_tension:
+                                p_frost = False
+                                notes.append(
+                                    f"Adfreeze {adfreeze_lbs:,.0f} lbs > "
+                                    f"tension capacity {ax.Q_r_tension:,.0f} lbs"
+                                )
+                        else:
+                            if ax.Q_allow_tension > 0 and adfreeze_lbs > ax.Q_allow_tension:
+                                p_frost = False
+                                notes.append(
+                                    f"Adfreeze {adfreeze_lbs:,.0f} lbs > "
+                                    f"tension capacity {ax.Q_allow_tension:,.0f} lbs"
+                                )
+                    except Exception:
+                        pass
+
+            # --- Min embedment: frost depth governs ---
+            min_embed_lat_ft = 0.0
+            p_min_embed = True
+            # (Broms lateral stability check is run separately on Page 07)
+
             # --- Pass/fail ---
             p_comp = comp_dcr <= 1.0
             p_tens = tens_dcr <= 1.0
             p_lat = lat_dcr <= 1.0 and lat_converged
             p_defl = defl <= deflection_limit
-            p_all = p_comp and p_tens and p_lat and p_defl
+            p_all = p_comp and p_tens and p_lat and p_defl and p_frost and p_min_embed
+
+            # Determine governing check
+            governing = "OK"
+            if not p_all:
+                dcr_map = [
+                    (comp_dcr, "Axial Compression"),
+                    (tens_dcr, "Axial Tension"),
+                    (lat_dcr, "Lateral Structural"),
+                    (defl / deflection_limit if deflection_limit > 0 else 0, "Deflection"),
+                ]
+                if not p_frost:
+                    dcr_map.append((999.0, "Frost/Adfreeze"))
+                if not p_min_embed:
+                    dcr_map.append((999.0, "Min Embedment"))
+                governing = max(dcr_map, key=lambda x: x[0])[1]
 
             candidates.append(OptimizationCandidate(
                 section_name=sec.name,
@@ -287,6 +356,11 @@ def run_optimization_sweep(
                 lateral_struct_dcr=lat_dcr,
                 deflection_in=defl,
                 deflection_limit_in=deflection_limit,
+                frost_min_embed_ft=frost_min_ft,
+                adfreeze_force_lbs=adfreeze_lbs,
+                passes_frost=p_frost,
+                min_embed_lateral_ft=min_embed_lat_ft,
+                passes_min_embed=p_min_embed,
                 passes_axial_comp=p_comp,
                 passes_axial_tens=p_tens,
                 passes_lateral_struct=p_lat,
@@ -295,6 +369,7 @@ def run_optimization_sweep(
                 governing_comp_case=comp_case,
                 governing_tens_case=tens_case,
                 governing_lateral_case=gov_lat.name,
+                governing_check=governing,
                 lateral_converged=lat_converged,
                 notes=notes,
             ))

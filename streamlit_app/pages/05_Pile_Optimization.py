@@ -149,6 +149,11 @@ if st.button("Run Optimization Sweep", type="primary"):
         pct = current / total
         progress_bar.progress(pct, text=f"Analyzing {section_name} ({current}/{total})")
 
+    # Frost parameters
+    _frost_in = st.session_state.get("frost_depth_in", 0.0) or 0.0
+    _tau_af = st.session_state.get("tau_af_psi", 10.0) or 10.0
+    _fy_ksi = st.session_state.get("steel_grade_ksi", 50) or 50
+
     opt_result = run_optimization_sweep(
         profile=profile,
         section_family=section_family,
@@ -165,6 +170,9 @@ if st.button("Run Optimization Sweep", type="primary"):
         design_method=design_method,
         corrosion_t_loss=t_loss,
         n_elements=50,
+        frost_depth_in=_frost_in,
+        tau_af_psi=_tau_af,
+        fy_ksi=_fy_ksi,
         progress_callback=update_progress,
     )
 
@@ -189,11 +197,38 @@ if "optimization_result" in st.session_state:
 
     # Optimal design highlight
     if opt.optimal:
+        o = opt.optimal
         st.success(
-            f"**Optimal Design:** {opt.optimal.section_name} at "
-            f"{opt.optimal.embedment_ft:.1f} ft embedment "
-            f"({opt.optimal.total_weight_lbs:.0f} lbs total pile weight)"
+            f"**Optimal Design:** {o.section_name} at "
+            f"{o.embedment_ft:.1f} ft embedment "
+            f"({o.total_weight_lbs:.0f} lbs total pile weight)"
         )
+
+        # --- Governing Design Summary ---
+        st.subheader("Governing Design Summary")
+        _defl_limit = o.deflection_limit_in if o.deflection_limit_in > 0 else 1.0
+        summary_rows = [
+            ["Axial Compression", f"{o.axial_comp_dcr:.2f}", o.governing_comp_case,
+             "PASS" if o.passes_axial_comp else "FAIL"],
+            ["Axial Tension", f"{o.axial_tens_dcr:.2f}", o.governing_tens_case,
+             "PASS" if o.passes_axial_tens else "FAIL"],
+            ["Lateral Structural", f"{o.lateral_struct_dcr:.2f}", o.governing_lateral_case,
+             "PASS" if o.passes_lateral_struct else "FAIL"],
+            ["Ground Deflection", f"{o.deflection_in / _defl_limit:.2f}",
+             f"{o.deflection_in:.3f} in / {_defl_limit:.2f} in",
+             "PASS" if o.passes_deflection else "FAIL"],
+        ]
+        if _frost_in > 0:
+            summary_rows.append([
+                "Frost / Adfreeze",
+                f"{o.frost_min_embed_ft:.1f} ft min",
+                f"Adfreeze: {o.adfreeze_force_lbs:,.0f} lbs",
+                "PASS" if o.passes_frost else "FAIL",
+            ])
+        summary_df = pd.DataFrame(
+            summary_rows, columns=["Check", "DCR / Value", "Governing Condition", "Status"],
+        )
+        st.dataframe(summary_df, hide_index=True, width="stretch")
     else:
         st.error(
             "No passing designs found in the swept range. "
