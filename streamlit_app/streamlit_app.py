@@ -93,31 +93,31 @@ def _home():
 
 
 # -- Build page objects -------------------------------------------------------
-_home_page = st.Page(_home, title="Home", icon="\u2693")
+_home_page = st.Page(_home, title="Home", icon=":material/anchor:")
 
 _nav_groups = {
     "Inputs": [
-        st.Page(str(_PAGES / "01_Project_Setup.py"), title="Project Setup", icon="\ud83d\udcc1"),
-        st.Page(str(_PAGES / "02_Soil_Profile.py"), title="Soil Profile", icon="\ud83e\udea8"),
-        st.Page(str(_PAGES / "03_Pile_Properties.py"), title="Pile Properties", icon="\ud83d\udd29"),
-        st.Page(str(_PAGES / "04_Loading.py"), title="Loading", icon="\u2696\ufe0f"),
+        st.Page(str(_PAGES / "01_Project_Setup.py"), title="Project Setup", icon=":material/folder_open:"),
+        st.Page(str(_PAGES / "02_Soil_Profile.py"), title="Soil Profile", icon=":material/layers:"),
+        st.Page(str(_PAGES / "03_Pile_Properties.py"), title="Pile Properties", icon=":material/construction:"),
+        st.Page(str(_PAGES / "04_Loading.py"), title="Loading", icon=":material/fitness_center:"),
     ],
     "Design": [
-        st.Page(str(_PAGES / "05_Pile_Optimization.py"), title="Pile Optimization", icon="\ud83c\udfaf"),
+        st.Page(str(_PAGES / "05_Pile_Optimization.py"), title="Pile Optimization", icon=":material/target:"),
     ],
     "Analysis": [
-        st.Page(str(_PAGES / "06_Axial_Capacity.py"), title="Axial Capacity", icon="\u2b07\ufe0f"),
-        st.Page(str(_PAGES / "07_Lateral_Analysis.py"), title="Lateral Analysis", icon="\u2194\ufe0f"),
-        st.Page(str(_PAGES / "08_Group_Analysis.py"), title="Group Analysis", icon="\ud83d\udd36"),
-        st.Page(str(_PAGES / "09_FEM_Analysis.py"), title="FEM Analysis", icon="\ud83d\udcca"),
+        st.Page(str(_PAGES / "06_Axial_Capacity.py"), title="Axial Capacity", icon=":material/arrow_downward:"),
+        st.Page(str(_PAGES / "07_Lateral_Analysis.py"), title="Lateral Analysis", icon=":material/swap_horiz:"),
+        st.Page(str(_PAGES / "08_Group_Analysis.py"), title="Group Analysis", icon=":material/grid_view:"),
+        st.Page(str(_PAGES / "09_FEM_Analysis.py"), title="FEM Analysis", icon=":material/bar_chart:"),
     ],
     "Checks": [
-        st.Page(str(_PAGES / "11_Structural_Check.py"), title="Structural Check", icon="\ud83c\udfd7\ufe0f"),
-        st.Page(str(_PAGES / "12_Liquefaction.py"), title="Liquefaction", icon="\ud83c\udf0a"),
-        st.Page(str(_PAGES / "13_Installation_QC.py"), title="Installation QC", icon="\ud83d\udd28"),
+        st.Page(str(_PAGES / "11_Structural_Check.py"), title="Structural Check", icon=":material/verified:"),
+        st.Page(str(_PAGES / "12_Liquefaction.py"), title="Liquefaction", icon=":material/water:"),
+        st.Page(str(_PAGES / "13_Installation_QC.py"), title="Installation QC", icon=":material/handyman:"),
     ],
     "Output": [
-        st.Page(str(_PAGES / "14_Export_Report.py"), title="Export Report", icon="\ud83d\udcc4"),
+        st.Page(str(_PAGES / "14_Export_Report.py"), title="Export Report", icon=":material/description:"),
     ],
 }
 
