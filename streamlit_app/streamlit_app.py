@@ -92,34 +92,48 @@ def _home():
     )
 
 
-pg = st.navigation(
-    {
-        "": [
-            st.Page(_home, title="Home", icon="\u2693"),
-        ],
-        "Inputs": [
-            st.Page(str(_PAGES / "01_Project_Setup.py"), title="Project Setup", icon="\ud83d\udcc1"),
-            st.Page(str(_PAGES / "02_Soil_Profile.py"), title="Soil Profile", icon="\ud83e\udea8"),
-            st.Page(str(_PAGES / "03_Pile_Properties.py"), title="Pile Properties", icon="\ud83d\udd29"),
-            st.Page(str(_PAGES / "04_Loading.py"), title="Loading", icon="\u2696\ufe0f"),
-        ],
-        "Design": [
-            st.Page(str(_PAGES / "05_Pile_Optimization.py"), title="Pile Optimization", icon="\ud83c\udfaf"),
-        ],
-        "Analysis": [
-            st.Page(str(_PAGES / "06_Axial_Capacity.py"), title="Axial Capacity", icon="\u2b07\ufe0f"),
-            st.Page(str(_PAGES / "07_Lateral_Analysis.py"), title="Lateral Analysis", icon="\u2194\ufe0f"),
-            st.Page(str(_PAGES / "08_Group_Analysis.py"), title="Group Analysis", icon="\ud83d\udd36"),
-            st.Page(str(_PAGES / "09_FEM_Analysis.py"), title="FEM Analysis", icon="\ud83d\udcca"),
-        ],
-        "Checks": [
-            st.Page(str(_PAGES / "11_Structural_Check.py"), title="Structural Check", icon="\ud83c\udfd7\ufe0f"),
-            st.Page(str(_PAGES / "12_Liquefaction.py"), title="Liquefaction", icon="\ud83c\udf0a"),
-            st.Page(str(_PAGES / "13_Installation_QC.py"), title="Installation QC", icon="\ud83d\udd28"),
-        ],
-        "Output": [
-            st.Page(str(_PAGES / "14_Export_Report.py"), title="Export Report", icon="\ud83d\udcc4"),
-        ],
-    }
-)
+# -- Build page objects -------------------------------------------------------
+_home_page = st.Page(_home, title="Home", icon="\u2693")
+
+_nav_groups = {
+    "Inputs": [
+        st.Page(str(_PAGES / "01_Project_Setup.py"), title="Project Setup", icon="\ud83d\udcc1"),
+        st.Page(str(_PAGES / "02_Soil_Profile.py"), title="Soil Profile", icon="\ud83e\udea8"),
+        st.Page(str(_PAGES / "03_Pile_Properties.py"), title="Pile Properties", icon="\ud83d\udd29"),
+        st.Page(str(_PAGES / "04_Loading.py"), title="Loading", icon="\u2696\ufe0f"),
+    ],
+    "Design": [
+        st.Page(str(_PAGES / "05_Pile_Optimization.py"), title="Pile Optimization", icon="\ud83c\udfaf"),
+    ],
+    "Analysis": [
+        st.Page(str(_PAGES / "06_Axial_Capacity.py"), title="Axial Capacity", icon="\u2b07\ufe0f"),
+        st.Page(str(_PAGES / "07_Lateral_Analysis.py"), title="Lateral Analysis", icon="\u2194\ufe0f"),
+        st.Page(str(_PAGES / "08_Group_Analysis.py"), title="Group Analysis", icon="\ud83d\udd36"),
+        st.Page(str(_PAGES / "09_FEM_Analysis.py"), title="FEM Analysis", icon="\ud83d\udcca"),
+    ],
+    "Checks": [
+        st.Page(str(_PAGES / "11_Structural_Check.py"), title="Structural Check", icon="\ud83c\udfd7\ufe0f"),
+        st.Page(str(_PAGES / "12_Liquefaction.py"), title="Liquefaction", icon="\ud83c\udf0a"),
+        st.Page(str(_PAGES / "13_Installation_QC.py"), title="Installation QC", icon="\ud83d\udd28"),
+    ],
+    "Output": [
+        st.Page(str(_PAGES / "14_Export_Report.py"), title="Export Report", icon="\ud83d\udcc4"),
+    ],
+}
+
+# Flat list for st.navigation (hidden — we draw our own sidebar)
+_all_pages = [_home_page]
+for pages in _nav_groups.values():
+    _all_pages.extend(pages)
+
+pg = st.navigation(_all_pages, position="hidden")
+
+# -- Custom collapsible sidebar ------------------------------------------------
+with st.sidebar:
+    st.page_link(_home_page, label="Home", icon="\u2693")
+    for group_name, pages in _nav_groups.items():
+        with st.expander(f"**{group_name}**", expanded=True):
+            for page in pages:
+                st.page_link(page)
+
 pg.run()
