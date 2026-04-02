@@ -139,6 +139,7 @@ def run_optimization_sweep(
     FS_lateral: float = 2.0,
     fy_ksi: float = 50.0,
     axial_zones: list[AxialSoilZone] | None = None,
+    adfreeze_hard_fail: bool = False,
     progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> OptimizationResult:
     """Sweep all sections in a family across embedment depths.
@@ -338,7 +339,9 @@ def run_optimization_sweep(
             p_tens = tens_dcr <= 1.0
             p_lat = lat_dcr <= 1.0 and lat_converged
             p_defl = defl <= deflection_limit
-            p_all = p_comp and p_tens and p_lat and p_defl and p_frost and p_min_embed
+            # Adfreeze: only counts as hard failure if user opted in
+            p_frost_eff = p_frost if adfreeze_hard_fail else True
+            p_all = p_comp and p_tens and p_lat and p_defl and p_frost_eff and p_min_embed
 
             # Determine governing check
             governing = "OK"
@@ -349,7 +352,7 @@ def run_optimization_sweep(
                     (lat_dcr, "Lateral Structural"),
                     (defl / deflection_limit if deflection_limit > 0 else 0, "Deflection"),
                 ]
-                if not p_frost:
+                if not p_frost_eff:
                     dcr_map.append((999.0, "Frost/Adfreeze"))
                 if not p_min_embed:
                     dcr_map.append((999.0, "Min Embedment"))

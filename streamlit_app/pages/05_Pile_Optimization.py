@@ -101,6 +101,13 @@ with col3:
         value=1.0, step=0.25, format="%.2f",
     )
 
+adfreeze_hard_fail = st.checkbox(
+    "Enforce adfreeze as pass/fail criterion",
+    value=False,
+    help="When unchecked, adfreeze is reported as a warning but does not fail "
+         "the design. Check this to require tension capacity > adfreeze force.",
+)
+
 # Show inherited settings
 with st.expander("Inherited Design Settings (from prior pages)", expanded=False):
     ic1, ic2, ic3, ic4 = st.columns(4)
@@ -192,6 +199,7 @@ if st.button("Run Optimization Sweep", type="primary"):
         tau_af_psi=_tau_af,
         fy_ksi=_fy_ksi,
         axial_zones=_build_axial_zones(),
+        adfreeze_hard_fail=adfreeze_hard_fail,
         progress_callback=update_progress,
     )
 
@@ -257,11 +265,17 @@ if "optimization_result" in st.session_state:
              "PASS" if o.passes_deflection else "FAIL"],
         ]
         if _frost_in > 0:
+            if o.passes_frost:
+                _frost_status = "PASS"
+            elif adfreeze_hard_fail:
+                _frost_status = "FAIL"
+            else:
+                _frost_status = "WARNING"
             summary_rows.append([
                 "Frost / Adfreeze",
                 f"{o.frost_min_embed_ft:.1f} ft min",
                 f"Adfreeze: {o.adfreeze_force_lbs:,.0f} lbs",
-                "PASS" if o.passes_frost else "FAIL",
+                _frost_status,
             ])
         summary_df = pd.DataFrame(
             summary_rows, columns=["Check", "DCR / Value", "Governing Condition", "Status"],
