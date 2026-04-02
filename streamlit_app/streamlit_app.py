@@ -110,6 +110,7 @@ _nav_groups = {
         st.Page(str(_PAGES / "07_Lateral_Analysis.py"), title="Lateral Analysis", icon=":material/swap_horiz:"),
         st.Page(str(_PAGES / "08_Group_Analysis.py"), title="Group Analysis", icon=":material/grid_view:"),
         st.Page(str(_PAGES / "09_FEM_Analysis.py"), title="FEM Analysis", icon=":material/bar_chart:"),
+        st.Page(str(_PAGES / "10_Cable_Management.py"), title="Cable Management", icon=":material/cable:"),
     ],
     "Checks": [
         st.Page(str(_PAGES / "11_Structural_Check.py"), title="Structural Check", icon=":material/verified:"),
