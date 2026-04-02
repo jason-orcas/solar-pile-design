@@ -55,7 +55,7 @@ def init_session_state():
         "K_factor": 2.1,
         # Frost
         "frost_region": "Midwest",
-        "frost_depth_in": 42.0,
+        "frost_depth_in": 0.0,
         "frost_method": "Regional lookup",
         # Liquefaction
         "liq_a_max": 0.2,

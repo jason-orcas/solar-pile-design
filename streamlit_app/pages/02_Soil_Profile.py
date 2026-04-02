@@ -405,6 +405,9 @@ else:
         frost_in = 42.0
     region = ""
 
+# Store computed frost depth for use by optimizer and other pages
+st.session_state["frost_depth_in"] = frost_in
+
 # Adfreeze bond strength input
 tau_af_psi = st.number_input(
     "Adfreeze bond strength, τ_af (psi)",
