@@ -6,7 +6,7 @@ import streamlit as st
 
 st.set_page_config(
     page_title="SPORK - Solar Pile Optimization & Report Kit",
-    page_icon="\u2693",
+    page_icon=":material/anchor:",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -131,7 +131,7 @@ pg = st.navigation(_all_pages, position="hidden")
 
 # -- Custom collapsible sidebar ------------------------------------------------
 with st.sidebar:
-    st.page_link(_home_page, label="Home", icon="\u2693")
+    st.page_link(_home_page, label="Home", icon=":material/anchor:")
     for group_name, pages in _nav_groups.items():
         with st.expander(f"**{group_name}**", expanded=True):
             for page in pages:
