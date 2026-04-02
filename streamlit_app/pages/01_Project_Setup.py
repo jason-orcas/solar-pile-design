@@ -19,7 +19,8 @@ st.header("Project Setup")
 col1, col2 = st.columns(2)
 with col1:
     st.session_state.project_name = st.text_input(
-        "Project Name", value=st.session_state.get("project_name", "New Project"),
+        "Project Name", value=st.session_state.get("project_name", ""),
+        placeholder="Enter project name",
     )
     st.session_state.project_location = st.text_input(
         "Site Location", value=st.session_state.get("project_location", ""),

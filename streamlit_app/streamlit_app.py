@@ -16,7 +16,7 @@ def init_session_state():
     """Initialize all session state defaults."""
     defaults = {
         # Project
-        "project_name": "New Project",
+        "project_name": "",
         "project_location": "",
         "project_notes": "",
         # Soil layers
@@ -54,7 +54,7 @@ def init_session_state():
         "above_grade": 4.0,
         "K_factor": 2.1,
         # Frost
-        "frost_region": "Midwest",
+        "frost_region": "Southern states",
         "frost_depth_in": 0.0,
         "frost_method": "Regional lookup",
         # Liquefaction
