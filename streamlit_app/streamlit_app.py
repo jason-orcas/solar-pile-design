@@ -70,7 +70,11 @@ def init_session_state():
     }
     for key, val in defaults.items():
         if key not in st.session_state:
-            st.session_state[key] = val
+            # If a page-level shadow exists ("_" + key), prefer it so values
+            # preserved across page-nav by the shadow-key pattern are not
+            # clobbered back to defaults when init runs on every page switch.
+            shadow_key = "_" + key
+            st.session_state[key] = st.session_state.get(shadow_key, val)
 
 
 init_session_state()
