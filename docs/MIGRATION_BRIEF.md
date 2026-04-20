@@ -329,9 +329,10 @@ directory (5 markdown files covering axial, lateral p-y, soil
 parameter correlations, pile group efficiency, load combinations).
 These are the authoritative sources for all calcs.
 
-The end-user spreadsheet that drove the adfreeze rework is in
+The end-user spreadsheet that drove the adfreeze rework is
 references/Combiners.xlsx — it's the pattern to match for the
-frost-heave check display.
+frost-heave check display. This file is gitignored (off-repo);
+ask Jason for the current copy if you need to reference it.
 ```
 
 ---

@@ -23,6 +23,12 @@ nul
 
 # Example / reference documents (large binaries)
 Example_Documents/
+references/Combiners.xlsx
+
+# Built user manual artifacts (source lives in SPORK_User_Manual.md;
+# published versions are hosted off-repo via the website)
+docs/SPORK_User_Manual*.docx
+docs/SPORK_User_Manual*.pdf
 
 # User project files
 Project_Files/
