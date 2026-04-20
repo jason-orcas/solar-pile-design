@@ -375,17 +375,39 @@ st.markdown("---")
 st.subheader("Frost Depth Check")
 st.caption("IBC 1809.5: Embedment must extend at least 12 inches below frost line.")
 
-# Initialize defaults BEFORE rendering widgets so key= state is stable
-_frost_defaults = {
-    "frost_method": "Regional lookup",
-    "frost_region": list(FROST_DEPTH_TABLE.keys())[0],
-    "frost_F_I": 1000.0,
-    "frost_stefan_soil": list(STEFAN_C.keys())[0],
-    "frost_depth_manual": 42.0,
+# --- Double-buffered widget state (survives both double-click AND page nav) ---
+# Streamlit clears widget-bound session_state on page unmount, but plain keys
+# (prefixed with _ here) persist. Pattern: before each widget render, seed the
+# widget key from the persistent shadow; after the widget renders, sync back.
+_shadow_defaults = {
+    "_frost_method": "Regional lookup",
+    "_frost_region": list(FROST_DEPTH_TABLE.keys())[0],
+    "_frost_F_I": 1000.0,
+    "_frost_stefan_soil": list(STEFAN_C.keys())[0],
+    "_frost_depth_manual": 42.0,
+    "_tau_af_psi": 10.0,
+    "_adfreeze_source_mode": "Geotech f_s_uplift (recommended)",
 }
-for _k, _v in _frost_defaults.items():
+for _k, _v in _shadow_defaults.items():
     if _k not in st.session_state or st.session_state[_k] is None:
         st.session_state[_k] = _v
+
+# Seed widget keys from shadows ONLY if the widget key is missing.
+# (After page nav, Streamlit clears widget-bound keys; shadows survive.
+# On a click-triggered rerun, widget key already holds the new click value
+# and we must NOT overwrite it with stale shadow.)
+_shadow_map = {
+    "frost_method": "_frost_method",
+    "frost_region": "_frost_region",
+    "frost_F_I": "_frost_F_I",
+    "frost_stefan_soil": "_frost_stefan_soil",
+    "frost_depth_manual": "_frost_depth_manual",
+    "tau_af_psi": "_tau_af_psi",
+    "adfreeze_source_mode": "_adfreeze_source_mode",
+}
+for _wk, _sk in _shadow_map.items():
+    if _wk not in st.session_state:
+        st.session_state[_wk] = st.session_state[_sk]
 
 frost_method = st.radio(
     "Frost depth method",
@@ -393,11 +415,13 @@ frost_method = st.radio(
     horizontal=True,
     key="frost_method",
 )
+st.session_state["_frost_method"] = frost_method
 
 if frost_method == "Regional lookup":
     region = st.selectbox(
         "US Region", list(FROST_DEPTH_TABLE.keys()), key="frost_region",
     )
+    st.session_state["_frost_region"] = region
     frost_in = frost_depth_regional(region)
 elif frost_method == "Stefan equation":
     fc1, fc2 = st.columns(2)
@@ -410,11 +434,13 @@ elif frost_method == "Stefan equation":
         if F_I is None:
             F_I = 1000.0
             st.session_state["frost_F_I"] = F_I
+        st.session_state["_frost_F_I"] = F_I
     with fc2:
         stefan_soil = st.selectbox(
             "Soil type (Stefan C)", list(STEFAN_C.keys()),
             key="frost_stefan_soil",
         )
+        st.session_state["_frost_stefan_soil"] = stefan_soil
     frost_in = frost_depth_stefan(F_I, stefan_soil)
     region = ""
 else:
@@ -426,20 +452,14 @@ else:
     if frost_in is None:
         frost_in = 42.0
         st.session_state["frost_depth_manual"] = frost_in
+    st.session_state["_frost_depth_manual"] = frost_in
     region = ""
 
 # Store computed frost depth for use by optimizer and other pages
 st.session_state["frost_depth_in"] = frost_in
 
-# Adfreeze source selection — use key= pattern to avoid double-click stickiness
 st.markdown("**Adfreeze Uplift Source**")
 _af_opts = ["Geotech f_s_uplift (recommended)", "Manual τ_af override"]
-if ("adfreeze_source_mode" not in st.session_state
-        or st.session_state["adfreeze_source_mode"] not in _af_opts):
-    st.session_state["adfreeze_source_mode"] = _af_opts[0]
-if "tau_af_psi" not in st.session_state or st.session_state["tau_af_psi"] is None:
-    st.session_state["tau_af_psi"] = 10.0
-
 adfreeze_mode = st.radio(
     "Adfreeze source", _af_opts, horizontal=True,
     key="adfreeze_source_mode",
@@ -448,8 +468,8 @@ adfreeze_mode = st.radio(
          "uplift skin friction, so using the same parameter keeps design consistent "
          "with the geotech report.",
 )
+st.session_state["_adfreeze_source_mode"] = adfreeze_mode
 
-# τ_af override input (always visible but only used when Manual selected)
 tau_af_psi = st.number_input(
     "Adfreeze bond strength, τ_af (psi) — used only in Manual mode",
     min_value=0.0,
@@ -462,6 +482,7 @@ tau_af_psi = st.number_input(
 if tau_af_psi is None:
     tau_af_psi = 10.0
     st.session_state["tau_af_psi"] = tau_af_psi
+st.session_state["_tau_af_psi"] = tau_af_psi
 
 embedment = st.session_state.get("pile_embedment", 10.0)
 section_obj = None
