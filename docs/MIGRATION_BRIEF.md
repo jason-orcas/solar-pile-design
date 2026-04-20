@@ -311,10 +311,12 @@ store.
   banners. PASS banners use BRAND_GREEN. Logo (bowman_logo.png)
   on cover + every page header.
 
-- User manual (docs/SPORK_User_Manual_v1.3.docx): already uses
-  Bowman branding (though an older Bowman blue palette —
-  #1F4E79 / #2E75B6). Consider aligning to the official
-  #00593d / #03425b palette in a future manual revision.
+- User manual (docs/SPORK_User_Manual_v1.3.docx): aligned to the
+  official Bowman Brand Standards palette (BRAND_GREEN #00593d /
+  BRAND_BLUE #03425b) as of this release. Headings H1/H2 use
+  Brand Green; H3/H4 and subtitle use Brand Blue; table header
+  rows use Brand Green background with white text. Matches the
+  PDF report palette.
 
 ───────── REFERENCE CONTENT ─────────
 

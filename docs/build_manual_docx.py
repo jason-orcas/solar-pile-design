@@ -20,7 +20,7 @@ def set_cell_shading(cell, color_hex: str):
     cell._tc.get_or_add_tcPr().append(shading)
 
 
-def style_header_row(row, bg_color="1F4E79", font_color=RGBColor(255, 255, 255)):
+def style_header_row(row, bg_color="00593D", font_color=RGBColor(255, 255, 255)):
     """Style a table header row with background color and white bold text."""
     for cell in row.cells:
         set_cell_shading(cell, bg_color)
@@ -318,21 +318,25 @@ def convert_md_to_docx(md_path: str, docx_path: str):
     style.paragraph_format.space_after = Pt(4)
     style.paragraph_format.space_before = Pt(2)
 
+    # Bowman Brand Standards palette
+    BRAND_GREEN = RGBColor(0x00, 0x59, 0x3D)   # #00593d — primary
+    BRAND_BLUE = RGBColor(0x03, 0x42, 0x5B)    # #03425b — secondary
+
     for level in range(1, 5):
         heading_style = doc.styles[f'Heading {level}']
         heading_style.font.name = 'Calibri'
         if level == 1:
             heading_style.font.size = Pt(22)
-            heading_style.font.color.rgb = RGBColor(0x1F, 0x4E, 0x79)
+            heading_style.font.color.rgb = BRAND_GREEN
         elif level == 2:
             heading_style.font.size = Pt(16)
-            heading_style.font.color.rgb = RGBColor(0x1F, 0x4E, 0x79)
+            heading_style.font.color.rgb = BRAND_GREEN
         elif level == 3:
             heading_style.font.size = Pt(13)
-            heading_style.font.color.rgb = RGBColor(0x2E, 0x75, 0xB6)
+            heading_style.font.color.rgb = BRAND_BLUE
         elif level == 4:
             heading_style.font.size = Pt(11)
-            heading_style.font.color.rgb = RGBColor(0x2E, 0x75, 0xB6)
+            heading_style.font.color.rgb = BRAND_BLUE
 
     # --- Title page ---
     # Reduced from 6 blank lines to 4 since header logo now occupies top space
@@ -343,14 +347,14 @@ def convert_md_to_docx(md_path: str, docx_path: str):
     title_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = title_p.add_run("SPORK")
     run.font.size = Pt(42)
-    run.font.color.rgb = RGBColor(0x1F, 0x4E, 0x79)
+    run.font.color.rgb = BRAND_GREEN
     run.bold = True
 
     subtitle_p = doc.add_paragraph()
     subtitle_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = subtitle_p.add_run("Solar Pile Optimization & Report Kit")
     run.font.size = Pt(20)
-    run.font.color.rgb = RGBColor(0x2E, 0x75, 0xB6)
+    run.font.color.rgb = BRAND_BLUE
 
     doc.add_paragraph()
 
