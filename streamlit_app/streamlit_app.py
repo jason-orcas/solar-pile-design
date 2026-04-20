@@ -97,9 +97,10 @@ def _home():
 
 
 # -- Build page objects -------------------------------------------------------
-_home_page = st.Page(_home, title="Home", icon=":material/anchor:")
+_home_page = st.Page(_home, title="Home", icon=":material/anchor:", default=True)
 
-_nav_groups = {
+_nav = {
+    "": [_home_page],
     "Inputs": [
         st.Page(str(_PAGES / "01_Project_Setup.py"), title="Project Setup", icon=":material/folder_open:"),
         st.Page(str(_PAGES / "02_Soil_Profile.py"), title="Soil Profile", icon=":material/layers:"),
@@ -126,19 +127,5 @@ _nav_groups = {
     ],
 }
 
-# Flat list for st.navigation (hidden — we draw our own sidebar)
-_all_pages = [_home_page]
-for pages in _nav_groups.values():
-    _all_pages.extend(pages)
-
-pg = st.navigation(_all_pages, position="hidden")
-
-# -- Custom collapsible sidebar ------------------------------------------------
-with st.sidebar:
-    st.page_link(_home_page, label="Home", icon=":material/anchor:")
-    for group_name, pages in _nav_groups.items():
-        with st.expander(f"**{group_name}**", expanded=True):
-            for page in pages:
-                st.page_link(page)
-
+pg = st.navigation(_nav, expanded=True)
 pg.run()
