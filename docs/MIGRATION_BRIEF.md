@@ -295,19 +295,26 @@ the Streamlit shadow-state pattern; it's not needed here. Just
 keep form state in the top-level Alpine component or use a
 store.
 
-───────── OUT OF SCOPE / ASK USER ─────────
+───────── BRANDING DECISIONS (locked) ─────────
 
-- Bowman brand logo placement: confirm with user/design team.
-  ARCADE uses text "ARCADE" in brand green; probably do the same
-  with "SPORK" unless the Bowman PNG logo should appear in headers.
+- Headers (web app): use the Bowman PNG logo, not text. Source is
+  streamlit_app/assets/bowman_logo.png in the SPORK repo. Place it
+  top-left in the header bar and on the auth screen, matching
+  ARCADE's convention for sizing (arcade.borcas.ai uses ~1.1 inch
+  logo height).
 
-- PDF report styling: the current Streamlit PDF uses generic
-  slate palette (#4A5568) not Bowman green/blue. User has not
-  decided whether to rebrand the PDF. Keep current palette OR
-  switch to Bowman — ask user.
+- PDF report: rebranded to Bowman palette as of SPORK v1.3
+  (core/pdf_export.py). Colors now use BRAND_GREEN (#00593d) for
+  headers, BRAND_BLUE (#03425b) for table chrome, BRAND_CELEDON
+  (#bbcbbe) for sub-headers / light fills, BRAND_GRAY (#767b81)
+  for secondary text, and Bowman danger (#b0363b) for FAIL
+  banners. PASS banners use BRAND_GREEN. Logo (bowman_logo.png)
+  on cover + every page header.
 
-- User manual (docs/SPORK_User_Manual_v1.3.docx) already uses
-  Bowman branding.
+- User manual (docs/SPORK_User_Manual_v1.3.docx): already uses
+  Bowman branding (though an older Bowman blue palette —
+  #1F4E79 / #2E75B6). Consider aligning to the official
+  #00593d / #03425b palette in a future manual revision.
 
 ───────── REFERENCE CONTENT ─────────
 

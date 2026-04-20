@@ -137,16 +137,27 @@ class ReportData:
 # ============================================================================
 
 class PileReportPDF(FPDF):
-    """Custom PDF class replicating SPile+ report styling."""
+    """Custom PDF class styled to Bowman Brand Standards (June 2025).
 
-    # Color constants (RGB)
-    HEADER_BG = (74, 85, 104)
+    Primary: Bowman Green (#00593d). Secondary: Bowman Blue (#03425b).
+    Muted: Bowman Gray (#767b81). Accents used sparingly.
+    """
+
+    # Color constants (RGB) — Bowman brand palette
+    BRAND_GREEN = (0, 89, 61)           # #00593d — primary
+    BRAND_BLUE = (3, 66, 91)            # #03425b — secondary / data chrome
+    BRAND_CELEDON = (187, 203, 190)     # #bbcbbe — light accent
+    BRAND_GRAY = (118, 123, 129)        # #767b81 — muted text, subtle borders
+    BRAND_YELLOW = (245, 187, 14)       # #f5bb0e — accent (sparingly)
+    BRAND_ACCENT_GREEN = (131, 188, 67) # #83bc43 — accent (sparingly)
+
+    HEADER_BG = BRAND_GREEN             # section headers
     HEADER_FG = (255, 255, 255)
-    TABLE_HEADER_BG = (100, 110, 130)
-    TABLE_ALT_ROW = (245, 245, 248)
-    CARD_BORDER = (210, 210, 215)
-    TEXT_PRIMARY = (40, 40, 45)
-    TEXT_SECONDARY = (100, 100, 110)
+    TABLE_HEADER_BG = BRAND_BLUE        # data table chrome
+    TABLE_ALT_ROW = (241, 244, 241)     # very light celedon tint
+    CARD_BORDER = (208, 215, 208)       # light gray-green
+    TEXT_PRIMARY = (27, 27, 31)         # #1b1b1f — brand text dark
+    TEXT_SECONDARY = BRAND_GRAY
 
     APP_TITLE = "Solar Pile Optimization & Report Kit"
 
@@ -216,15 +227,15 @@ class PileReportPDF(FPDF):
         self.ln(12)
 
     def sub_header(self, title: str):
-        """Lighter sub-section header bar."""
+        """Lighter sub-section header bar (Bowman celedon tint)."""
         self._check_page_space(12)
-        self.set_fill_color(190, 195, 205)
+        self.set_fill_color(*self.BRAND_CELEDON)
         self.set_text_color(*self.TEXT_PRIMARY)
         self.set_font("Helvetica", "B", 9)
         x = self.l_margin + 10
         w = self.w - 2 * self.l_margin - 20
         y = self.get_y()
-        self.set_draw_color(190, 195, 205)
+        self.set_draw_color(*self.BRAND_CELEDON)
         self.rect(x, y, w, 7, style="FD")
         self.set_xy(x, y + 0.5)
         self.cell(w, 6, self._safe_text(title), align="C")
@@ -566,7 +577,7 @@ def _draw_w_section(pdf: PileReportPDF, section: SteelSection):
     tw = max(section.tw * scale, 1.0)
 
     pdf.set_draw_color(0, 0, 0)
-    pdf.set_fill_color(240, 235, 225)
+    pdf.set_fill_color(*pdf.BRAND_CELEDON)  # steel section fill
 
     # Top flange
     pdf.rect(cx - bf / 2, cy - d / 2, bf, tf, style="FD")
@@ -577,7 +588,7 @@ def _draw_w_section(pdf: PileReportPDF, section: SteelSection):
 
     # Dimension labels
     pdf.set_font("Helvetica", "", 7)
-    pdf.set_text_color(40, 40, 45)
+    pdf.set_text_color(*pdf.TEXT_PRIMARY)
 
     # Height dimension (left side)
     arrow_x = cx - bf / 2 - 12
@@ -1283,18 +1294,18 @@ def _render_rigid_cap_group(
 
 
 def _pass_fail_banner(pdf: PileReportPDF, passes: bool, text: str):
-    """Render a prominent PASS/FAIL banner."""
+    """Render a prominent PASS/FAIL banner (Bowman palette)."""
     pdf._check_page_space(12)
     if passes:
-        pdf.set_fill_color(34, 139, 34)
+        pdf.set_fill_color(*pdf.BRAND_GREEN)   # #00593d
     else:
-        pdf.set_fill_color(200, 40, 40)
+        pdf.set_fill_color(176, 54, 59)        # #b0363b — Bowman danger
     pdf.set_text_color(255, 255, 255)
     pdf.set_font("Helvetica", "B", 10)
     x = pdf.l_margin + 15
     w = pdf.w - 2 * pdf.l_margin - 30
     y = pdf.get_y()
-    pdf.set_draw_color(100, 100, 100)
+    pdf.set_draw_color(*pdf.BRAND_GRAY)
     pdf.rect(x, y, w, 8, style="FD")
     pdf.set_xy(x, y + 1)
     pdf.cell(w, 6, PileReportPDF._safe_text(text), align="C")
@@ -1600,15 +1611,15 @@ def _render_liquefaction(pdf: PileReportPDF, data: ReportData):
     if liq.any_liquefiable:
         _pass_fail_banner(pdf, False, f"LIQUEFIABLE -- {liq.summary}")
     elif "MARGINAL" in liq.summary.upper():
-        # Use amber/orange for marginal
+        # Use Bowman Yellow accent for marginal
         pdf._check_page_space(12)
-        pdf.set_fill_color(210, 160, 30)
-        pdf.set_text_color(255, 255, 255)
+        pdf.set_fill_color(*pdf.BRAND_YELLOW)
+        pdf.set_text_color(*pdf.TEXT_PRIMARY)
         pdf.set_font("Helvetica", "B", 10)
         x = pdf.l_margin + 15
         w = pdf.w - 2 * pdf.l_margin - 30
         y = pdf.get_y()
-        pdf.set_draw_color(100, 100, 100)
+        pdf.set_draw_color(*pdf.BRAND_GRAY)
         pdf.rect(x, y, w, 8, style="FD")
         pdf.set_xy(x, y + 1)
         pdf.cell(w, 6, PileReportPDF._safe_text(f"MARGINAL -- {liq.summary}"),
