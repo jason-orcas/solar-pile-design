@@ -375,82 +375,93 @@ st.markdown("---")
 st.subheader("Frost Depth Check")
 st.caption("IBC 1809.5: Embedment must extend at least 12 inches below frost line.")
 
-_fm_options = ["Regional lookup", "Stefan equation", "Manual"]
-_fm_default = st.session_state.get("frost_method", "Regional lookup")
-_fm_idx = _fm_options.index(_fm_default) if _fm_default in _fm_options else 0
+# Initialize defaults BEFORE rendering widgets so key= state is stable
+_frost_defaults = {
+    "frost_method": "Regional lookup",
+    "frost_region": list(FROST_DEPTH_TABLE.keys())[0],
+    "frost_F_I": 1000.0,
+    "frost_stefan_soil": list(STEFAN_C.keys())[0],
+    "frost_depth_manual": 42.0,
+}
+for _k, _v in _frost_defaults.items():
+    if _k not in st.session_state or st.session_state[_k] is None:
+        st.session_state[_k] = _v
+
 frost_method = st.radio(
-    "Frost depth method", _fm_options, index=_fm_idx, horizontal=True,
+    "Frost depth method",
+    ["Regional lookup", "Stefan equation", "Manual"],
+    horizontal=True,
+    key="frost_method",
 )
-st.session_state["frost_method"] = frost_method
 
 if frost_method == "Regional lookup":
-    _regions = list(FROST_DEPTH_TABLE.keys())
-    _r_default = st.session_state.get("frost_region", _regions[0])
-    _r_idx = _regions.index(_r_default) if _r_default in _regions else 0
-    region = st.selectbox("US Region", _regions, index=_r_idx)
-    st.session_state["frost_region"] = region
+    region = st.selectbox(
+        "US Region", list(FROST_DEPTH_TABLE.keys()), key="frost_region",
+    )
     frost_in = frost_depth_regional(region)
 elif frost_method == "Stefan equation":
     fc1, fc2 = st.columns(2)
     with fc1:
         F_I = st.number_input(
             "Freezing Index (degree-days F)",
-            min_value=0.0,
-            value=float(st.session_state.get("frost_F_I", 1000.0) or 1000.0),
-            step=100.0, format="%.0f",
+            min_value=0.0, step=100.0, format="%.0f",
+            key="frost_F_I",
         )
         if F_I is None:
             F_I = 1000.0
-        st.session_state["frost_F_I"] = F_I
+            st.session_state["frost_F_I"] = F_I
     with fc2:
-        _soils = list(STEFAN_C.keys())
-        _s_default = st.session_state.get("frost_stefan_soil", _soils[0])
-        _s_idx = _soils.index(_s_default) if _s_default in _soils else 0
-        stefan_soil = st.selectbox("Soil type (Stefan C)", _soils, index=_s_idx)
-        st.session_state["frost_stefan_soil"] = stefan_soil
+        stefan_soil = st.selectbox(
+            "Soil type (Stefan C)", list(STEFAN_C.keys()),
+            key="frost_stefan_soil",
+        )
     frost_in = frost_depth_stefan(F_I, stefan_soil)
     region = ""
 else:
     frost_in = st.number_input(
         "Frost depth (in)", min_value=0.0,
-        value=float(st.session_state.get("frost_depth_manual", 42.0) or 42.0),
         step=6.0, format="%.0f",
+        key="frost_depth_manual",
     )
     if frost_in is None:
         frost_in = 42.0
-    st.session_state["frost_depth_manual"] = frost_in
+        st.session_state["frost_depth_manual"] = frost_in
     region = ""
 
 # Store computed frost depth for use by optimizer and other pages
 st.session_state["frost_depth_in"] = frost_in
 
-# Adfreeze source selection
+# Adfreeze source selection — use key= pattern to avoid double-click stickiness
 st.markdown("**Adfreeze Uplift Source**")
 _af_opts = ["Geotech f_s_uplift (recommended)", "Manual τ_af override"]
-_af_default = st.session_state.get("adfreeze_source_mode", _af_opts[0])
-_af_idx = _af_opts.index(_af_default) if _af_default in _af_opts else 0
+if ("adfreeze_source_mode" not in st.session_state
+        or st.session_state["adfreeze_source_mode"] not in _af_opts):
+    st.session_state["adfreeze_source_mode"] = _af_opts[0]
+if "tau_af_psi" not in st.session_state or st.session_state["tau_af_psi"] is None:
+    st.session_state["tau_af_psi"] = 10.0
+
 adfreeze_mode = st.radio(
-    "Adfreeze source", _af_opts, index=_af_idx, horizontal=True,
+    "Adfreeze source", _af_opts, horizontal=True,
+    key="adfreeze_source_mode",
     help="Recommended: use the geotech-stated uplift skin friction values from the "
          "soil profile / axial zones. In frozen conditions the adfreeze bond IS the "
          "uplift skin friction, so using the same parameter keeps design consistent "
          "with the geotech report.",
 )
-st.session_state["adfreeze_source_mode"] = adfreeze_mode
 
 # τ_af override input (always visible but only used when Manual selected)
 tau_af_psi = st.number_input(
     "Adfreeze bond strength, τ_af (psi) — used only in Manual mode",
     min_value=0.0,
-    value=float(st.session_state.get("tau_af_psi", 10.0) or 10.0),
     step=0.5, format="%.1f",
+    key="tau_af_psi",
     help="Typical values: 5–15 psi for steel in frozen sand/gravel, "
          "10–25 psi for frozen silt, 15–40+ psi for ice-rich frozen clay. "
          "To convert from ksf: τ_af (psi) = f_s_uplift (ksf) × 1000 / 144.",
 )
 if tau_af_psi is None:
     tau_af_psi = 10.0
-st.session_state["tau_af_psi"] = tau_af_psi
+    st.session_state["tau_af_psi"] = tau_af_psi
 
 embedment = st.session_state.get("pile_embedment", 10.0)
 section_obj = None

@@ -2,13 +2,14 @@
 
 **Solar Pile Optimization & Report Kit**
 
-Version 1.2 | February 2026
+Version 1.3 | April 20, 2026
 
 ---
 
 ## Table of Contents
 
 1. [Introduction](#1-introduction)
+1A. [What's New in v1.3](#1a-whats-new-in-v13)
 2. [Project Setup (Page 01)](#2-project-setup)
 3. [Soil Profile (Page 02)](#3-soil-profile)
 4. [Pile Properties (Page 03)](#4-pile-properties)
@@ -18,6 +19,7 @@ Version 1.2 | February 2026
 8. [Lateral Analysis (Page 07)](#8-lateral-analysis)
 9. [Group Analysis (Page 08)](#9-group-analysis)
 10. [FEM Analysis (Page 09)](#10-fem-analysis)
+10A. [Cable Management (Page 10)](#10a-cable-management)
 11. [Structural Check (Page 11)](#11-structural-check)
 12. [Liquefaction Screening (Page 12)](#12-liquefaction-screening)
 13. [Installation QC (Page 13)](#13-installation-qc)
@@ -40,18 +42,61 @@ Practicing civil, structural, and geotechnical engineers performing pile foundat
 Work through pages sequentially. Each page builds on data entered in prior pages:
 
 1. **Project Setup** -- Enter project info, optionally import a TOPL document
-2. **Soil Profile** -- Define soil layers, SPT data, water table, frost depth
+2. **Soil Profile** -- Define soil layers, SPT data, water table, frost depth, adfreeze check
 3. **Pile Properties** -- Select steel section, embedment, installation method
-4. **Loading** -- Enter per-pile loads, review load combinations
+4. **Loading** -- Enter per-pile loads (including adfreeze uplift), review load combinations
 5. **Pile Optimization** *(optional)* -- Sweep sections and embedments to find the lightest passing design
-6. **Axial Capacity** -- Compute compression and tension capacity
+6. **Axial Capacity** -- Compute compression and tension capacity (frost-aware)
 7. **Lateral Analysis** -- Run p-y curve analysis, Broms check, deflection checks
 8. **Group Analysis** *(if applicable)* -- Evaluate pile group efficiency
 9. **FEM Analysis** *(optional)* -- BNWF finite element model for combined loading
-10. **Structural Check** -- AISC 360 combined axial + bending interaction
-11. **Liquefaction Screening** *(if seismic zone)* -- SPT-based liquefaction assessment
-12. **Installation QC** -- Dynamic formula or torque correlation acceptance criteria
-13. **Export Report** -- Generate and download a PDF summary
+10. **Cable Management** -- CAB/AWM cable sag and clearance analysis
+11. **Structural Check** -- AISC 360 combined axial + bending interaction
+12. **Liquefaction Screening** *(if seismic zone)* -- SPT-based liquefaction assessment
+13. **Installation QC** -- Dynamic formula or torque correlation acceptance criteria
+14. **Export Report** -- Generate and download a PDF summary
+
+---
+
+## 1A. What's New in v1.3
+
+This release focuses on **frost-heave / adfreeze design**, **load-input workflow improvements**, and **UI stability**. Highlights since v1.2 (February 2026):
+
+### Adfreeze rework (major engineering change)
+
+Brings SPORK's frost uplift check in line with industry practice (FHWA / Canadian Foundation Engineering Manual) and the standard spreadsheet workflow used by most geotechs:
+
+- **Adfreeze demand now uses the geotech's stated uplift skin friction.** On the Soil Profile page, a new **Adfreeze Uplift Source** selector offers:
+    - *Geotech f_s_uplift (recommended)* -- integrates the soil profile's per-layer `f_s_uplift` (or axial-zone `f_s_uplift_psf`) over the frost depth. No separate adfreeze bond parameter is needed; the frozen-zone skin friction IS the adfreeze bond.
+    - *Manual τ_af override* -- preserves the prior τ_af (psi) workflow for back-compatibility.
+- **Tension/uplift skin friction now excludes the frost zone.** `axial_capacity()` accepts a `frost_depth_ft` parameter. When set, skin friction integrated above the frost line is excluded from tension capacity (it is double-counting with the adfreeze demand). Compression is unaffected -- frozen soil still resists downward loads.
+- **New service-level adfreeze check.** Directly implements the industry formula:
+    `skin_friction_below_frost + D_per_pile - adfreeze >= 0`
+    No load factors applied -- this is a service-level physical check, distinct from the LRFD load case (see below).
+- **New LRFD / ASD load combinations for adfreeze:** LC8 `0.9D + A_f` and ASD-AF `0.6D + A_f`. These appear automatically on the Loading page when the adfreeze uplift input is non-zero.
+- **Adfreeze uplift is now a load input on Page 04 (Loading).** An auto-computed value is pulled from the Soil Profile frost check; click "Use computed value" to accept, or enter manually.
+- **PDF report** now includes the service-level adfreeze check result with pass/fail, margin, and contributing resistance breakdown.
+
+### Navigation and UI
+
+- **Sidebar restored as collapsible groups.** Streamlit 1.56 broke the previous custom-sidebar pattern; v1.3 uses Streamlit's native grouped navigation (Inputs / Design / Analysis / Checks / Output) which works across Streamlit versions.
+- **Widget persistence fixes.** Fixed the long-standing bug where number inputs, radios, and selectboxes would reset to default on page navigation or require two clicks to "stick." Affected widgets across Project Setup, Soil Profile, Loading, Group Analysis, Structural Check, Liquefaction, Lateral Analysis, and Cable Management pages.
+- **Bowman branding** preserved -- header logo and brand colors (#1F4E79 / #2E75B6) throughout the manual and report.
+
+### Workflow
+
+- **Cable Management page** (Page 10) -- CAB and AWM cable sag, tension, and ground-clearance analysis.
+- **Axial Soil Zones** (Page 02 bottom) -- separate skin friction / end-bearing parameters at arbitrary depth intervals, independent of the lateral soil profile. The new adfreeze-from-profile integration preferentially reads these values when present.
+- **TOPL import improvements** -- Nextpower XLSX parser, cleaner column mapping, fewer double-input artifacts.
+- **Optimizer** now reports governing failure modes and carries forward the auto-populated optimal design to downstream pages (Axial, Lateral, etc.) with an indicator.
+- **AISC 360 structural check** (Page 11) now correctly sources `above_grade` and `K_factor` from session state with persistent defaults.
+
+### Known artifacts and subtleties
+
+- **Axial integration `dz` artifact.** Skin friction is integrated in 0.5-ft increments by default. At layer boundaries, the chunk whose right edge hits the boundary is attributed to the deeper layer by `layer_at_depth(z)`. For the verification example in the end-user spreadsheet (1.5 ksf / 0.3 / 1.0 kip per ft over 2 / 10 / 12.5 ft boundaries), this produces ~5,250 lbs vs. spreadsheet's 4,900 lbs (+7%). The result converges to the closed-form value at `dz=0.05` ft. For design purposes the default `dz=0.5` is slightly conservative on compression and slightly non-conservative on tension near layer boundaries; if this matters for your site, lower `dz` in the axial API or align layer boundaries to whole-foot depths.
+- **Frost-zone skin friction in compression.** The frost_depth_ft exclusion applies *only* to tension/uplift capacity; compression capacity still integrates over the full embedment (consistent with engineering practice -- frozen soil resists downward loads).
+- **Adfreeze LRFD vs. service-level checks.** The LRFD LC8 (`0.9D + A_f`) and ASD-AF (`0.6D + A_f`) combinations are stricter than the service-level check shown on Page 02 (which uses full D and no factors per industry convention). Both are evaluated. In most cases the service-level check is the governing check for frost-heave; the LRFD case covers the formal code combination.
+- **Optimizer adfreeze comparison** still uses the raw comparison `adfreeze < Q_r_tension` (no dead-load credit) as a standalone pass/fail flag -- this is the strictest of the three checks and is what the "Enforce adfreeze as pass/fail" checkbox on Page 05 controls.
 
 ---
 
@@ -267,7 +312,36 @@ SPORK requires embedment to exceed the frost depth plus 12 inches.
 - Frost depth (in and ft)
 - Minimum required embedment (ft) = frost depth + 12 in
 - Pass/Fail against the current pile embedment from Page 03
-- Estimated adfreeze uplift force (if pile perimeter is available)
+- Adfreeze uplift force (see Adfreeze Uplift Source below)
+
+### Adfreeze Uplift Source
+
+A radio selector below the frost depth controls how the adfreeze uplift demand is computed. In frozen conditions the adfreeze bond between the pile shaft and soil IS the uplift skin friction -- frozen, not unfrozen. SPORK supports two workflows:
+
+| Option | When to use | Formula |
+|--------|-------------|---------|
+| **Geotech f_s_uplift (recommended)** | Default. Use the geotech-stated uplift skin friction from the soil profile's per-layer `f_s_uplift` or axial-zone `f_s_uplift_psf`. Consistent with how most geotech reports specify frost-heave resistance. | Integrate f_s_uplift × perimeter over the frost depth. |
+| **Manual τ_af override** | Use when the geotech report specifies an explicit adfreeze bond strength (τ_af, psi) distinct from the general uplift skin friction. | A_f = τ_af × perimeter × frost_depth |
+
+**Conversion reference:** τ_af (psi) = f_s_uplift (ksf) × 1000 / 144. Typical τ_af values: 5-15 psi for steel in frozen sand/gravel; 10-25 psi for frozen silt; 15-40+ psi for ice-rich frozen clay.
+
+The computed adfreeze force is displayed with its source label (e.g., "f_s_uplift (profile layers)" or "tau_af manual").
+
+### Service-Level Adfreeze Check
+
+When adfreeze > 0, SPORK runs a service-level check matching the standard industry spreadsheet:
+
+    skin_friction_below_frost + D_per_pile - adfreeze  >=  0
+
+This is a direct service-level check -- **no load factors applied** -- per FHWA and Canadian Foundation Engineering Manual guidance for frost-heave. Components:
+
+- **skin_friction_below_frost**: Skin friction integrated from `frost_depth` to `embedment_depth` using the active axial profile / zones. The frost zone is excluded because its friction is already counted as the adfreeze demand; double-counting it on both sides would invalidate the check.
+- **D_per_pile**: Dead load per pile from Page 04 (Loading), unfactored.
+- **adfreeze**: Computed above from the selected source.
+
+A pass/fail verdict, margin (positive = safe), and contributing resistance breakdown are displayed and carried into the PDF report.
+
+This is **independent of** the LRFD / ASD load combinations. When the adfreeze uplift field on Page 04 is non-zero, SPORK also runs the LRFD `0.9D + A_f` (LC8) and ASD `0.6D + A_f` (ASD-AF) combinations through the axial capacity check at the factored demand level. The service-level check on Page 02 and the factored LCs on Page 04 are independent checks at different levels of conservatism; both run automatically.
 
 ---
 
@@ -364,6 +438,12 @@ All loads are entered as unfactored (service-level) values per pile. SPORK gener
 | **Seismic moment** | ft-lbs | 0 | Seismic moment at ground per pile. |
 | **Lateral load height above ground** | ft | 4.0 | The height above the ground surface where the lateral load (wind or seismic) is applied. Also called the "lever arm" or "eccentricity." The moment at ground = H * lever_arm. Typical values for solar trackers: 3-6 ft. |
 
+#### Environmental (new in v1.3)
+
+| Field | Units | Default | Description |
+|-------|-------|---------|-------------|
+| **Adfreeze uplift** | lbs | 0 | Frost-heave uplift force per pile. Auto-populated from the Soil Profile frost check; click **Use computed value** to accept, or override manually. When non-zero, a dedicated uplift load combination (LC8 LRFD or ASD-AF) is added below. |
+
 ### Load Combination Tables
 
 SPORK generates all applicable ASCE 7-22 load combinations. The table displays each combination with:
@@ -381,8 +461,11 @@ SPORK generates all applicable ASCE 7-22 load combinations. The table displays e
 | LC4a: 1.2D + 1.0W(down) + L + 0.5S | Maximum compression with wind |
 | LC4b: 1.2D + 1.0W(up) + L + 0.5S | Uplift case |
 | LC6: 0.9D + 1.0W | **Usually governs for solar** -- minimum gravity with full wind uplift and lateral |
+| LC8: 0.9D + A_f *(new in v1.3)* | **Frost-heave uplift** -- appears only when adfreeze > 0. Standalone environmental case; no concurrent wind. |
 
-LC6 (0.9D + 1.0W) almost always governs solar pile design because dead loads are very light and wind uplift/lateral forces are large relative to gravity.
+The corresponding ASD case **ASD-AF: 0.6D + A_f** is generated when design method is ASD or Both.
+
+LC6 (0.9D + 1.0W) almost always governs solar pile design because dead loads are very light and wind uplift/lateral forces are large relative to gravity. For frost-susceptible sites, LC8 becomes a secondary governing case and can exceed LC6 when wind uplift is modest but frost-heave potential is high.
 
 ### Optional Calculators
 
@@ -481,6 +564,16 @@ Where q_b depends on the soil type and method: for sand, q_b = N_q * sigma_v' (M
     Q_ult_tension = 0.75 * Q_s  (skin friction only, reduced)
 
 A 0.75 reduction factor is applied to skin friction for tension because the stress state reversal can reduce interface friction. End bearing does not contribute to tension capacity.
+
+**Tension Capacity in Frost-Susceptible Sites (new in v1.3):**
+
+When a frost depth is defined on Page 02, `axial_capacity()` excludes skin friction in the frost zone from the tension / uplift capacity:
+
+    Q_ult_tension = 0.75 * Q_s_below_frost   (if frost_depth_ft > 0)
+
+This prevents double-counting: the frost-zone skin friction is already the adfreeze demand, so including it on the resistance side would be unconservative. Compression capacity is unaffected -- frozen soil still resists downward loads.
+
+Where explicit per-layer or per-zone `f_s_uplift` values are provided, the integration uses those values only for tension; the downward `f_s` controls compression. This separation is important for frost-susceptible sites where frozen uplift friction differs from unfrozen compression friction.
 
 ### LRFD Resistance Factors
 
@@ -777,6 +870,44 @@ The BNWF model uses three types of nonlinear springs:
 
 ---
 
+## 10A. Cable Management
+
+*Page 10: Cable Sag & Clearance Analysis*
+
+Evaluates messenger wire sag, tension, and required pile-top clearance for cable management systems on solar tracker rows. Supports two system types:
+
+| System | Description | Tensioning |
+|--------|-------------|------------|
+| **CAB** | Self-tensioning via wire weight; follows HDR/CAB lookup tables for pier reactions and spans. | Span- and weight-dependent. |
+| **AWM** | Pre-tensioned messenger wire; analyzed via catenary formula. | User-specified stringing tension or allowable sag. |
+
+### Inputs
+
+| Section | Fields |
+|---------|--------|
+| **Span & Wire** | Span between piles (ft), wire weight including cables (lb/ft, typically 5-15). |
+| **Temperature** | Annual min / max (deg F). Drives thermal expansion sag estimates. |
+| **Bracket & Hanger Geometry** | Bracket drop (in; CAB ~5.5, AWM ~-1), hanger height (in), pile-top clearance (in). |
+| **Clearance Requirements** | Required ground clearance (commonly 18 in), flood freeboard (in). |
+| **Pile Reveal** | Above-grade height (ft), defaults to the Page 03 value. |
+| **AWM-specific** | Stringing tension (lbs) OR allowable sag (in), plus temperature sag allowance. |
+
+### Outputs
+
+- Sag at mid-span under self-weight, temperature, and wind loading
+- Computed messenger wire tension
+- Lowest cable point vs. ground clearance / flood freeboard requirements
+- Pass / fail against all clearance requirements
+- For CAB: pier reactions interpolated from the HDR/CAB tables based on wind speed and span
+
+### References
+
+- HDR / CAB cable management design tables (manufacturer data)
+- ASCE 7 wind loading on cables and messenger wire
+- Catenary equation: y = (T/w) * cosh(wx/T) for small-sag approximation
+
+---
+
 ## 11. Structural Check
 
 *Page 11: AISC 360 Structural Capacity Check*
@@ -1021,6 +1152,14 @@ The PDF includes all completed analyses, organized into sections:
 - No negative skin friction (downdrag) is computed.
 - No setup or relaxation effects are modeled (capacity changes after installation).
 - End bearing is based on the layer at the pile tip. Punching through a thin bearing layer into weaker soil is not checked automatically.
+- **Integration dz artifact (known, v1.3).** Skin friction is integrated in 0.5-ft increments by default. At layer boundaries, `layer_at_depth(z)` uses the depth at the *end* of each chunk, so the chunk straddling a boundary is attributed to the deeper layer. For typical three-zone profiles with 8-10 ft boundaries, this over-counts by ~0.5 kip per boundary at dz=0.5 (slightly non-conservative on tension, slightly conservative on compression). Converges to the closed-form value at dz=0.05. Align layer boundaries to whole-foot depths or reduce dz for exact matches to hand-calculated or spreadsheet results.
+
+### Frost and Adfreeze
+
+- **Service-level and LRFD adfreeze checks run independently.** The service-level check on Page 02 uses unfactored D (per FHWA/CFEM convention); the LRFD LC8 (`0.9D + A_f`) runs through the normal load-combination framework. Both can be consulted; the service-level check is typically governing in practice.
+- **Optimizer adfreeze check** (Page 05) compares raw adfreeze force against the pile's factored tension resistance `Q_r_tension` with no dead-load credit -- stricter than either the service-level or LRFD checks.
+- **Adfreeze uplift on Page 04** creates LC8 / ASD-AF only when non-zero. These are standalone environmental cases (no concurrent wind). For sites where peak wind and peak frost can co-occur, add a fraction of wind uplift to the adfreeze demand manually, or add a custom combination outside SPORK.
+- **τ_af manual override** is available for back-compatibility and for geotech reports that explicitly specify an adfreeze bond strength distinct from the general uplift skin friction.
 
 ### Group Analysis
 
@@ -1129,9 +1268,15 @@ The PDF includes all completed analyses, organized into sections:
 
 - Terzaghi, K. and Peck, R.B. (1967). *Soil Mechanics in Engineering Practice* (2nd Ed.). John Wiley & Sons, New York.
 
-### Frost Depth
+### Frost Depth and Adfreeze
 
 - Modified Berggren (Stefan) equation as implemented in U.S. Army Corps of Engineers frost depth procedures.
+
+- International Code Council (2021). *International Building Code* -- Section 1809.5 (minimum embedment below frost line).
+
+- Canadian Geotechnical Society (2006). *Canadian Foundation Engineering Manual* (4th Ed.). BiTech Publishers, Richmond, BC. -- Adfreeze bond strength values and frost-heave uplift design guidance.
+
+- Federal Highway Administration (2005). *Micropile Design and Construction* (FHWA NHI-05-039). Washington, DC. -- Adfreeze resistance and frost protection for deep foundations.
 
 ### Installation QC
 

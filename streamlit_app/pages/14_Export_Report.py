@@ -194,6 +194,7 @@ def build_report_data() -> ReportData:
         topl_filename=_extract_topl_filename(),
         # New engineering checks
         frost_result=st.session_state.get("frost_result"),
+        adfreeze_service_result=st.session_state.get("adfreeze_service_result"),
         structural_result=st.session_state.get("structural_result"),
         service_defl_result=st.session_state.get("service_defl_result"),
         service_defl_limit=_ss("service_defl_limit", 0.5),

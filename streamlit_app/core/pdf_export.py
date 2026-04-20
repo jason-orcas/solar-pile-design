@@ -26,7 +26,7 @@ from .lateral import LateralResult, PYCurve
 from .group import GroupResult, RigidCapResult
 from .bnwf import BNWFResult
 from .loads import LoadCase, LoadInput, generate_lrfd_combinations, generate_asd_combinations
-from .frost import FrostCheckResult
+from .frost import FrostCheckResult, AdfreezeServiceCheck
 from .structural import AISCUnityResult
 from .liquefaction import LiquefactionResult, LiquefactionLayerResult
 from .installation import DrivenPileQCResult, HelicalQCResult
@@ -109,6 +109,7 @@ class ReportData:
 
     # Frost check
     frost_result: FrostCheckResult | None = None
+    adfreeze_service_result: AdfreezeServiceCheck | None = None
 
     # AISC Structural check
     structural_result: AISCUnityResult | None = None
@@ -1404,7 +1405,9 @@ def _render_frost_check(pdf: PileReportPDF, data: ReportData):
     pdf.kv_row("Actual Embedment", f"{fr.actual_embedment_ft:.1f}", "ft")
     pdf.kv_row("Margin", f"{fr.margin_ft:.1f}", "ft")
     if fr.adfreeze_force_lbs is not None:
-        pdf.kv_row("Adfreeze Uplift", f"{fr.adfreeze_force_lbs:,.0f}", "lbs")
+        _src = fr.adfreeze_source or "tau_af manual"
+        pdf.kv_row("Adfreeze Uplift", f"{fr.adfreeze_force_lbs:,.0f}", "lbs",
+                   f"source: {_src}")
     pdf.card_end()
 
     if fr.notes:
@@ -1413,6 +1416,52 @@ def _render_frost_check(pdf: PileReportPDF, data: ReportData):
             pdf.set_x(pdf.l_margin + 10)
             pdf.cell(0, 4, PileReportPDF._safe_text(n))
             pdf.ln(4)
+
+    # --- Service-level adfreeze check (industry practice, no load factors) ---
+    svc = data.adfreeze_service_result
+    if svc is not None and svc.adfreeze_force_lbs > 0:
+        pdf.ln(3)
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(0, 5, "Service-Level Adfreeze Check")
+        pdf.ln(5)
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_x(pdf.l_margin + 2)
+        pdf.multi_cell(
+            0, 4,
+            PileReportPDF._safe_text(
+                "Verifies: skin_friction_below_frost + D_per_pile - adfreeze >= 0. "
+                "Service-level check (no load factors) per FHWA / Canadian Foundation "
+                "Engineering Manual guidance for frost-heave uplift."
+            ),
+        )
+        pdf.ln(1)
+
+        status = "PASS" if svc.passes else "FAIL"
+        _pass_fail_banner(
+            pdf, svc.passes,
+            f"{status} -- Total resistance {svc.total_resistance_lbs:,.0f} lbs "
+            f"vs adfreeze demand {svc.adfreeze_force_lbs:,.0f} lbs "
+            f"(margin {svc.margin_lbs:+,.0f} lbs)",
+        )
+
+        pdf.card_start()
+        pdf.kv_row("Adfreeze Demand", f"{svc.adfreeze_force_lbs:,.0f}", "lbs")
+        pdf.kv_row(
+            f"Skin Friction Below Frost ({svc.resistance_depth_ft:.1f} ft)",
+            f"{svc.skin_resistance_below_frost_lbs:,.0f}", "lbs",
+        )
+        pdf.kv_row("Dead Load per Pile", f"{svc.dead_load_per_pile_lbs:,.0f}", "lbs")
+        pdf.kv_row("Total Resistance", f"{svc.total_resistance_lbs:,.0f}", "lbs")
+        pdf.kv_row("Margin", f"{svc.margin_lbs:+,.0f}", "lbs",
+                   "PASS" if svc.passes else "FAIL")
+        pdf.card_end()
+
+        if svc.notes:
+            pdf.set_font("Helvetica", "I", 8)
+            for n in svc.notes:
+                pdf.set_x(pdf.l_margin + 10)
+                pdf.cell(0, 4, PileReportPDF._safe_text(n))
+                pdf.ln(4)
 
 
 def _render_structural_check(pdf: PileReportPDF, data: ReportData):
