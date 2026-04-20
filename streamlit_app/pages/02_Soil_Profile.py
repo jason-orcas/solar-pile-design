@@ -396,16 +396,17 @@ for _k, _v in _shadow_defaults.items():
 # (After page nav, Streamlit clears widget-bound keys; shadows survive.
 # On a click-triggered rerun, widget key already holds the new click value
 # and we must NOT overwrite it with stale shadow.)
-_shadow_map = {
+# Seed widget keys for RADIOS/SELECTBOXES from shadows only if missing.
+# (Number inputs don't use key= below; they read value= directly from shadows
+# because pre-seeded session_state doesn't reliably control number_input's
+# initial value on first render after page unmount.)
+_radio_shadow_map = {
     "frost_method": "_frost_method",
     "frost_region": "_frost_region",
-    "frost_F_I": "_frost_F_I",
     "frost_stefan_soil": "_frost_stefan_soil",
-    "frost_depth_manual": "_frost_depth_manual",
-    "tau_af_psi": "_tau_af_psi",
     "adfreeze_source_mode": "_adfreeze_source_mode",
 }
-for _wk, _sk in _shadow_map.items():
+for _wk, _sk in _radio_shadow_map.items():
     if _wk not in st.session_state:
         st.session_state[_wk] = st.session_state[_sk]
 
@@ -428,12 +429,12 @@ elif frost_method == "Stefan equation":
     with fc1:
         F_I = st.number_input(
             "Freezing Index (degree-days F)",
-            min_value=0.0, step=100.0, format="%.0f",
-            key="frost_F_I",
+            min_value=0.0,
+            value=float(st.session_state.get("_frost_F_I", 1000.0) or 1000.0),
+            step=100.0, format="%.0f",
         )
         if F_I is None:
             F_I = 1000.0
-            st.session_state["frost_F_I"] = F_I
         st.session_state["_frost_F_I"] = F_I
     with fc2:
         stefan_soil = st.selectbox(
@@ -446,12 +447,11 @@ elif frost_method == "Stefan equation":
 else:
     frost_in = st.number_input(
         "Frost depth (in)", min_value=0.0,
+        value=float(st.session_state.get("_frost_depth_manual", 42.0) or 42.0),
         step=6.0, format="%.0f",
-        key="frost_depth_manual",
     )
     if frost_in is None:
         frost_in = 42.0
-        st.session_state["frost_depth_manual"] = frost_in
     st.session_state["_frost_depth_manual"] = frost_in
     region = ""
 
@@ -473,15 +473,15 @@ st.session_state["_adfreeze_source_mode"] = adfreeze_mode
 tau_af_psi = st.number_input(
     "Adfreeze bond strength, τ_af (psi) — used only in Manual mode",
     min_value=0.0,
+    value=float(st.session_state.get("_tau_af_psi", 10.0) or 10.0),
     step=0.5, format="%.1f",
-    key="tau_af_psi",
     help="Typical values: 5–15 psi for steel in frozen sand/gravel, "
          "10–25 psi for frozen silt, 15–40+ psi for ice-rich frozen clay. "
          "To convert from ksf: τ_af (psi) = f_s_uplift (ksf) × 1000 / 144.",
 )
 if tau_af_psi is None:
     tau_af_psi = 10.0
-    st.session_state["tau_af_psi"] = tau_af_psi
+st.session_state["_tau_af_psi"] = tau_af_psi
 st.session_state["_tau_af_psi"] = tau_af_psi
 
 embedment = st.session_state.get("pile_embedment", 10.0)
