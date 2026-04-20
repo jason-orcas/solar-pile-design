@@ -30,6 +30,8 @@ class AxialResult:
     Q_r_tension: float
     layer_contributions: list[dict]  # Per-layer breakdown
     notes: list[str]
+    Q_s_below_frost: float = 0.0  # Skin friction below frost depth (lbs, for adfreeze check)
+    frost_depth_ft: float = 0.0   # Frost depth used in this calc (ft)
 
 
 def alpha_adhesion_factor(c_u: float, sigma_v: float = 0) -> float:
@@ -104,6 +106,7 @@ def axial_capacity(
     tension_factor: float = 0.75,
     dz: float = 0.5,
     axial_zones: list[AxialSoilZone] | None = None,
+    frost_depth_ft: float = 0.0,
 ) -> AxialResult:
     """Compute axial compression and tension capacity.
 
@@ -118,6 +121,9 @@ def axial_capacity(
         FS_tension: Factor of safety for tension (ASD)
         tension_factor: Reduction factor for tension skin friction
         dz: Depth increment for integration (ft)
+        frost_depth_ft: Frost depth (ft). If > 0, skin friction in the frost
+            zone (z < frost_depth_ft) is excluded from tension/uplift capacity.
+            Compression capacity is unaffected (frozen soil still contributes).
 
     Returns:
         AxialResult with complete breakdown
@@ -125,6 +131,7 @@ def axial_capacity(
     notes = []
     layer_contributions = []
     Q_s_total = 0.0
+    Q_s_below_frost = 0.0  # compression skin friction summed below frost depth
     Q_b = 0.0
 
     # LRFD resistance factors
@@ -149,6 +156,9 @@ def axial_capacity(
 
         sigma_v = profile.effective_stress_at(z)
         A_s = pile_perimeter * dz * 12.0  # in^2 (perimeter in inches * dz in ft * 12)
+        # z represents the bottom of a dz-ft chunk spanning [z-dz, z].
+        # A chunk is "in frost" if its bottom is at or above frost depth.
+        in_frost_zone = frost_depth_ft > 0 and z <= frost_depth_ft + 1e-6
 
         # Check for separate axial zones first (independent depth intervals)
         if axial_zones:
@@ -159,7 +169,8 @@ def axial_capacity(
                 dQ = f_s_psi * A_s
                 f_s_up = zone.f_s_uplift_psf if zone.f_s_uplift_psf > 0 else f_s
                 dQ_up = (f_s_up / 144.0) * A_s
-                Q_s_uplift_total += dQ_up
+                if not in_frost_zone:
+                    Q_s_uplift_total += dQ_up
                 has_explicit_uplift = True
                 layer_contributions.append({
                     "depth_ft": z,
@@ -168,8 +179,11 @@ def axial_capacity(
                     "f_s_psf": round(f_s, 1),
                     "f_s_uplift_psf": round(f_s_up, 1),
                     "dQ_lbs": round(dQ, 0),
+                    "in_frost_zone": in_frost_zone,
                 })
                 Q_s_total += dQ
+                if not in_frost_zone:
+                    Q_s_below_frost += dQ
                 continue
 
         # Check for explicit skin friction values on the layer (override correlations)
@@ -180,7 +194,8 @@ def axial_capacity(
             # Track uplift separately if provided
             f_s_up = layer.f_s_uplift if layer.f_s_uplift is not None else f_s
             dQ_up = (f_s_up / 144.0) * A_s
-            Q_s_uplift_total += dQ_up
+            if not in_frost_zone:
+                Q_s_uplift_total += dQ_up
             has_explicit_uplift = layer.f_s_uplift is not None or has_explicit_uplift
             layer_contributions.append({
                 "depth_ft": z,
@@ -189,8 +204,11 @@ def axial_capacity(
                 "f_s_psf": round(f_s, 1),
                 "f_s_uplift_psf": round(f_s_up, 1),
                 "dQ_lbs": round(dQ, 0),
+                "in_frost_zone": in_frost_zone,
             })
             Q_s_total += dQ
+            if not in_frost_zone:
+                Q_s_below_frost += dQ
             continue
 
         is_cohesive = layer.soil_type in (SoilType.CLAY, SoilType.SILT, SoilType.ORGANIC)
@@ -212,6 +230,7 @@ def axial_capacity(
                 "c_u_psf": round(c_u, 0),
                 "f_s_psf": round(f_s, 1),
                 "dQ_lbs": round(dQ, 0),
+                "in_frost_zone": in_frost_zone,
             })
 
         elif use_method == "meyerhof":
@@ -233,6 +252,7 @@ def axial_capacity(
                 "N_60": round(N_60, 1),
                 "f_s_psf": round(f_s, 1),
                 "dQ_lbs": round(dQ, 0),
+                "in_frost_zone": in_frost_zone,
             })
 
         else:  # Beta method
@@ -257,9 +277,12 @@ def axial_capacity(
                 "sigma_v_psf": round(sigma_v, 0),
                 "f_s_psf": round(f_s, 1),
                 "dQ_lbs": round(dQ, 0),
+                "in_frost_zone": in_frost_zone,
             })
 
         Q_s_total += dQ
+        if not in_frost_zone:
+            Q_s_below_frost += dQ
 
     # --- End bearing ---
     tip_layer = profile.layer_at_depth(embedment_depth - 0.01)
@@ -303,10 +326,21 @@ def axial_capacity(
     if has_explicit_uplift:
         Q_ult_tens = Q_s_uplift_total
         notes.append("Tension uses explicit uplift skin friction values")
+    elif frost_depth_ft > 0:
+        Q_ult_tens = Q_s_below_frost * tension_factor
+        notes.append(
+            f"Tension excludes skin friction in top {frost_depth_ft:.1f} ft "
+            f"(frost zone — adfreeze is the uplift demand there)"
+        )
     else:
         Q_ult_tens = Q_s_total * tension_factor
 
     notes.append(f"Skin friction: {Q_s_total:.0f} lbs")
+    if frost_depth_ft > 0:
+        notes.append(
+            f"Skin friction below frost ({frost_depth_ft:.1f} ft): "
+            f"{Q_s_below_frost:.0f} lbs"
+        )
     notes.append(f"End bearing: {Q_b:.0f} lbs")
     notes.append(f"Tension factor on skin friction: {tension_factor}")
     notes.append(f"Pile type: {pile_type}")
@@ -327,6 +361,8 @@ def axial_capacity(
         Q_r_tension=phi_tens * Q_ult_tens,
         layer_contributions=layer_contributions,
         notes=notes,
+        Q_s_below_frost=Q_s_below_frost if frost_depth_ft > 0 else Q_s_total,
+        frost_depth_ft=frost_depth_ft,
     )
 
 

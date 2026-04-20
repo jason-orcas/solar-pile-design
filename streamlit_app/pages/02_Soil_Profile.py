@@ -11,11 +11,13 @@ import plotly.graph_objects as go
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from core.soil import (
     SoilLayer, SoilProfile, SoilType, PYModel, PY_MODEL_PARAMS,
+    AxialSoilZone,
     correct_N_overburden, build_soil_layer_from_dict,
 )
 from core.frost import (
     FROST_DEPTH_TABLE, STEFAN_C,
     frost_depth_regional, frost_depth_stefan, frost_check,
+    adfreeze_from_profile, adfreeze_service_check,
 )
 
 st.header("Soil Profile")
@@ -422,14 +424,29 @@ else:
 # Store computed frost depth for use by optimizer and other pages
 st.session_state["frost_depth_in"] = frost_in
 
-# Adfreeze bond strength input
+# Adfreeze source selection
+st.markdown("**Adfreeze Uplift Source**")
+_af_opts = ["Geotech f_s_uplift (recommended)", "Manual τ_af override"]
+_af_default = st.session_state.get("adfreeze_source_mode", _af_opts[0])
+_af_idx = _af_opts.index(_af_default) if _af_default in _af_opts else 0
+adfreeze_mode = st.radio(
+    "Adfreeze source", _af_opts, index=_af_idx, horizontal=True,
+    help="Recommended: use the geotech-stated uplift skin friction values from the "
+         "soil profile / axial zones. In frozen conditions the adfreeze bond IS the "
+         "uplift skin friction, so using the same parameter keeps design consistent "
+         "with the geotech report.",
+)
+st.session_state["adfreeze_source_mode"] = adfreeze_mode
+
+# τ_af override input (always visible but only used when Manual selected)
 tau_af_psi = st.number_input(
-    "Adfreeze bond strength, τ_af (psi)",
+    "Adfreeze bond strength, τ_af (psi) — used only in Manual mode",
     min_value=0.0,
     value=float(st.session_state.get("tau_af_psi", 10.0) or 10.0),
     step=0.5, format="%.1f",
     help="Typical values: 5–15 psi for steel in frozen sand/gravel, "
-         "10–25 psi for frozen silt, 15–40+ psi for ice-rich frozen clay.",
+         "10–25 psi for frozen silt, 15–40+ psi for ice-rich frozen clay. "
+         "To convert from ksf: τ_af (psi) = f_s_uplift (ksf) × 1000 / 144.",
 )
 if tau_af_psi is None:
     tau_af_psi = 10.0
@@ -445,6 +462,36 @@ try:
 except Exception:
     pass
 
+# Compute adfreeze per selected mode
+adfreeze_override_lbs = None
+adfreeze_src_label = ""
+if adfreeze_mode.startswith("Geotech") and st.session_state.get("soil_layers"):
+    # Build profile + zones for integration
+    _layers = [build_soil_layer_from_dict(ld) for ld in st.session_state.soil_layers]
+    _prof = SoilProfile(layers=_layers, water_table_depth=st.session_state.get("water_table_depth"))
+    _zones_dicts = st.session_state.get("axial_zones") or []
+    _zones = []
+    for zd in _zones_dicts:
+        try:
+            _zones.append(AxialSoilZone(
+                top_depth_ft=float(zd.get("top_ft", 0.0)),
+                bottom_depth_ft=float(zd.get("bottom_ft", 0.0)),
+                f_s_comp_psf=float(zd.get("f_s_comp_psf", 0.0)),
+                f_s_uplift_psf=float(zd.get("f_s_uplift_psf", 0.0)),
+                q_b_psf=float(zd.get("q_b_psf", 0.0)),
+                description=zd.get("description", ""),
+            ))
+        except (TypeError, ValueError):
+            continue
+    _force, _src, _notes = adfreeze_from_profile(
+        profile=_prof,
+        pile_perimeter_in=perimeter,
+        frost_depth_ft=frost_in / 12.0,
+        axial_zones=_zones if _zones else None,
+    )
+    adfreeze_override_lbs = _force
+    adfreeze_src_label = _src
+
 result_frost = frost_check(
     frost_depth_in=frost_in,
     embedment_ft=embedment,
@@ -452,6 +499,8 @@ result_frost = frost_check(
     tau_af_psi=tau_af_psi,
     method=frost_method,
     region=region if frost_method == "Regional lookup" else "",
+    adfreeze_force_override_lbs=adfreeze_override_lbs,
+    adfreeze_source_override=adfreeze_src_label,
 )
 st.session_state["frost_result"] = result_frost
 
@@ -470,5 +519,64 @@ else:
     )
 
 if result_frost.adfreeze_force_lbs:
-    st.info(f"Estimated adfreeze uplift force: {result_frost.adfreeze_force_lbs:,.0f} lbs "
-            f"(τ_af = {tau_af_psi:.1f} psi)")
+    _af_src = result_frost.adfreeze_source or "tau_af manual"
+    st.info(
+        f"Adfreeze uplift force: **{result_frost.adfreeze_force_lbs:,.0f} lbs** "
+        f"(source: {_af_src})"
+    )
+
+# ----------------------------------------------------------------------------
+# Service-Level Adfreeze Check (skin below frost + D per pile vs adfreeze)
+# ----------------------------------------------------------------------------
+if result_frost.adfreeze_force_lbs and perimeter > 0 and st.session_state.get("soil_layers"):
+    st.markdown("**Service-Level Adfreeze Check**")
+    st.caption(
+        "Industry-standard check: `skin_friction_below_frost + D_per_pile ≥ adfreeze`. "
+        "Skin friction resistance is computed only below the frost depth; dead load per "
+        "pile is taken from the Loading page at service level (no load factors)."
+    )
+    try:
+        from core.axial import axial_capacity
+        _ax = axial_capacity(
+            profile=_prof if adfreeze_mode.startswith("Geotech") else
+                    SoilProfile(
+                        layers=[build_soil_layer_from_dict(ld) for ld in st.session_state.soil_layers],
+                        water_table_depth=st.session_state.get("water_table_depth"),
+                    ),
+            pile_perimeter=perimeter,
+            pile_tip_area=(section_obj.tip_area if section_obj else 0.0),
+            embedment_depth=embedment,
+            axial_zones=_zones if adfreeze_mode.startswith("Geotech") and _zones else None,
+            frost_depth_ft=frost_in / 12.0,
+        )
+        _skin_below_frost_lbs = _ax.Q_s_below_frost
+        _D_per_pile = float(st.session_state.get("dead_load", 0.0) or 0.0)
+        svc = adfreeze_service_check(
+            adfreeze_force_lbs=result_frost.adfreeze_force_lbs,
+            skin_resistance_below_frost_lbs=_skin_below_frost_lbs,
+            dead_load_per_pile_lbs=_D_per_pile,
+            frost_depth_ft=frost_in / 12.0,
+            embedment_ft=embedment,
+        )
+        st.session_state["adfreeze_service_result"] = svc
+
+        sc1, sc2, sc3, sc4 = st.columns(4)
+        sc1.metric("Adfreeze Demand", f"{svc.adfreeze_force_lbs:,.0f} lbs")
+        sc2.metric(f"Skin (below {svc.frost_depth_ft:.1f} ft)",
+                   f"{svc.skin_resistance_below_frost_lbs:,.0f} lbs")
+        sc3.metric("Dead / Pile", f"{svc.dead_load_per_pile_lbs:,.0f} lbs")
+        sc4.metric("Margin", f"{svc.margin_lbs:+,.0f} lbs")
+
+        if svc.passes:
+            st.success(
+                f"PASS — No net uplift. Total resistance "
+                f"{svc.total_resistance_lbs:,.0f} lbs ≥ adfreeze "
+                f"{svc.adfreeze_force_lbs:,.0f} lbs"
+            )
+        else:
+            st.error(
+                f"FAIL — Net uplift of {-svc.margin_lbs:,.0f} lbs. Increase embedment, "
+                f"upsize pile, add frost sleeve, or increase reveal."
+            )
+    except Exception as _e:
+        st.warning(f"Service-level adfreeze check unavailable: {_e}")

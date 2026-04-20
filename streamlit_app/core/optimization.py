@@ -254,6 +254,7 @@ def run_optimization_sweep(
                     FS_compression=FS_compression,
                     FS_tension=FS_tension,
                     axial_zones=axial_zones,
+                    frost_depth_ft=frost_depth_in / 12.0 if frost_depth_in > 0 else 0.0,
                 )
                 if design_method == "LRFD":
                     cap_comp = ax.Q_r_compression

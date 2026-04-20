@@ -82,6 +82,7 @@ with col3:
 
 # --- Run analysis ---
 if st.button("Run Axial Analysis", type="primary"):
+    _frost_in_ft = (st.session_state.get("frost_depth_in", 0.0) or 0.0) / 12.0
     result = axial_capacity(
         profile=profile,
         pile_perimeter=section.perimeter,
@@ -92,6 +93,7 @@ if st.button("Run Axial Analysis", type="primary"):
         FS_compression=st.session_state.FS_compression,
         FS_tension=st.session_state.FS_tension,
         axial_zones=_build_axial_zones(),
+        frost_depth_ft=_frost_in_ft,
     )
 
     st.session_state["axial_result"] = result
