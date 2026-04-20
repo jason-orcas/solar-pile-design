@@ -55,25 +55,31 @@ has_piles = bool(st.session_state.get("group_piles"))
 with st.expander("Grid Generator", expanded=not has_piles):
     gc1, gc2, gc3, gc4 = st.columns(4)
     with gc1:
-        st.number_input(
-            "Number of rows", min_value=1, max_value=30,
-            step=1, key="group_n_rows",
+        _n_rows = st.number_input(
+            "Number of rows", min_value=1, max_value=30, step=1,
+            value=int(st.session_state.get("group_n_rows", 1) or 1),
         )
+        st.session_state["group_n_rows"] = _n_rows if _n_rows is not None else 1
     with gc2:
-        st.number_input(
-            "Piles per row", min_value=1, max_value=30,
-            step=1, key="group_n_cols",
+        _n_cols = st.number_input(
+            "Piles per row", min_value=1, max_value=30, step=1,
+            value=int(st.session_state.get("group_n_cols", 1) or 1),
         )
+        st.session_state["group_n_cols"] = _n_cols if _n_cols is not None else 1
     with gc3:
-        st.number_input(
+        _x_sp = st.number_input(
             "X spacing — along tracker (in)", min_value=6.0,
-            step=6.0, format="%.1f", key="group_x_spacing",
+            step=6.0, format="%.1f",
+            value=float(st.session_state.get("group_x_spacing", 36.0) or 36.0),
         )
+        st.session_state["group_x_spacing"] = _x_sp if _x_sp is not None else 36.0
     with gc4:
-        st.number_input(
+        _y_sp = st.number_input(
             "Y spacing — perpendicular (in)", min_value=6.0,
-            step=6.0, format="%.1f", key="group_y_spacing",
+            step=6.0, format="%.1f",
+            value=float(st.session_state.get("group_y_spacing", 36.0) or 36.0),
         )
+        st.session_state["group_y_spacing"] = _y_sp if _y_sp is not None else 36.0
 
     if st.button("Generate Grid", type="primary"):
         # Guard against None from cleared number_input fields
@@ -218,9 +224,11 @@ st.session_state["group_Q_tens"] = Q_tens if Q_tens is not None else 0.0
 # ---------------------------------------------------------------------------
 col_head, _ = st.columns(2)
 with col_head:
-    st.radio(
-        "Pile Head Condition", ["Free", "Fixed/Restricted"],
-        key="group_head_condition", horizontal=True,
+    _head_opts = ["Free", "Fixed/Restricted"]
+    _head_default = st.session_state.get("group_head_condition", "Free")
+    _head_idx = _head_opts.index(_head_default) if _head_default in _head_opts else 0
+    st.session_state["group_head_condition"] = st.radio(
+        "Pile Head Condition", _head_opts, index=_head_idx, horizontal=True,
     )
 
 st.markdown("---")

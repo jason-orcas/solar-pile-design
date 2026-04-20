@@ -94,12 +94,38 @@ with col3:
         value=st.session_state.get("lever_arm", 4.0), step=0.5, format="%.1f",
     )
 
+# --- Environmental / frost uplift ---
+st.markdown("**Environmental**")
+_af_computed = 0.0
+_frost_result = st.session_state.get("frost_result")
+if _frost_result is not None and getattr(_frost_result, "adfreeze_force_lbs", None):
+    _af_computed = float(_frost_result.adfreeze_force_lbs)
+
+_af_cols = st.columns([2, 1])
+with _af_cols[0]:
+    _af_default = st.session_state.get("adfreeze_uplift")
+    if _af_default is None:
+        _af_default = _af_computed
+    st.session_state.adfreeze_uplift = st.number_input(
+        "Adfreeze uplift (lbs)", min_value=0.0,
+        value=float(_af_default or 0.0), step=100.0, format="%.0f",
+        help="Frost-heave uplift force per pile. Auto-computed on the Soil Profile "
+             "page from τ_af × perimeter × frost depth. Override here if needed. "
+             "Creates a dedicated 0.9D + A_f (LRFD) / 0.6D + A_f (ASD) load case.",
+    )
+with _af_cols[1]:
+    if _af_computed > 0:
+        st.caption(f"Auto (Soil Profile): {_af_computed:,.0f} lbs")
+        if st.button("Use computed value", use_container_width=True):
+            st.session_state.adfreeze_uplift = _af_computed
+            st.rerun()
+
 # Guard against None from cleared number_input fields
 for _k, _d in [("dead_load", 0.0), ("live_load", 0.0), ("snow_load", 0.0),
                ("wind_down", 0.0), ("wind_up", 0.0), ("wind_lateral", 0.0),
                ("wind_moment", 0.0), ("seismic_lateral", 0.0),
                ("seismic_vertical", 0.0), ("seismic_moment", 0.0),
-               ("lever_arm", 4.0)]:
+               ("lever_arm", 4.0), ("adfreeze_uplift", 0.0)]:
     if st.session_state.get(_k) is None:
         st.session_state[_k] = _d
 
@@ -170,6 +196,7 @@ load_input = LoadInput(
     seismic_lateral=st.session_state.seismic_lateral,
     seismic_moment=st.session_state.seismic_moment,
     lever_arm=st.session_state.lever_arm,
+    adfreeze_uplift=st.session_state.adfreeze_uplift,
 )
 
 if st.session_state.design_method in ("LRFD", "Both"):

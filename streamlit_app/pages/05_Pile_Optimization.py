@@ -154,6 +154,7 @@ if st.button("Run Optimization Sweep", type="primary"):
         seismic_lateral=st.session_state.get("seismic_lateral", 0.0),
         seismic_moment=st.session_state.get("seismic_moment", 0.0),
         lever_arm=st.session_state.get("lever_arm", 4.0),
+        adfreeze_uplift=st.session_state.get("adfreeze_uplift", 0.0) or 0.0,
     )
 
     design_method = st.session_state.get("design_method", "LRFD")

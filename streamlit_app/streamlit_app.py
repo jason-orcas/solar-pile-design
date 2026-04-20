@@ -40,6 +40,7 @@ def init_session_state():
         "seismic_lateral": 0.0,
         "seismic_vertical": 0.0,
         "seismic_moment": 0.0,
+        "adfreeze_uplift": 0.0,
         "design_method": "LRFD",
         # Analysis flags
         "axial_method": "auto",
@@ -50,6 +51,9 @@ def init_session_state():
         "group_n_rows": 1,
         "group_n_cols": 1,
         "group_spacing": 36.0,
+        "group_x_spacing": 36.0,
+        "group_y_spacing": 36.0,
+        "group_head_condition": "Free",
         # Structural check
         "above_grade": 4.0,
         "K_factor": 2.1,

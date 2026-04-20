@@ -30,6 +30,7 @@ class LoadInput:
     seismic_lateral: float = 0.0
     seismic_moment: float = 0.0
     lever_arm: float = 4.0      # Height of lateral load above ground (ft)
+    adfreeze_uplift: float = 0.0  # Frost adfreeze uplift per pile (lbs, positive = uplift)
 
 
 def generate_lrfd_combinations(loads: LoadInput) -> list[LoadCase]:
@@ -48,6 +49,7 @@ def generate_lrfd_combinations(loads: LoadInput) -> list[LoadCase]:
     E_h = loads.seismic_lateral
     E_m = loads.seismic_moment
     e = loads.lever_arm
+    A_f = loads.adfreeze_uplift
 
     cases = []
 
@@ -114,6 +116,15 @@ def generate_lrfd_combinations(loads: LoadInput) -> list[LoadCase]:
         M_ground=1.0 * E_m + 1.0 * E_h * e,
     ))
 
+    # LC8: 0.9D + Adfreeze — winter frost-heave uplift (no concurrent wind)
+    if A_f > 0:
+        net_uplift_af = max(0, A_f - 0.9 * D)
+        cases.append(LoadCase(
+            name="LC8: 0.9D + Adfreeze (frost uplift)",
+            V_comp=max(0, 0.9 * D - A_f),
+            V_tens=net_uplift_af,
+        ))
+
     return cases
 
 
@@ -130,6 +141,7 @@ def generate_asd_combinations(loads: LoadInput) -> list[LoadCase]:
     E_h = loads.seismic_lateral
     E_m = loads.seismic_moment
     e = loads.lever_arm
+    A_f = loads.adfreeze_uplift
 
     cases = []
 
@@ -184,6 +196,14 @@ def generate_asd_combinations(loads: LoadInput) -> list[LoadCase]:
         H_lat=0.7 * E_h,
         M_ground=0.7 * E_m + 0.7 * E_h * e,
     ))
+
+    # ASD-AF: 0.6D + Adfreeze — winter frost-heave uplift (no concurrent wind)
+    if A_f > 0:
+        cases.append(LoadCase(
+            name="ASD-AF: 0.6D + Adfreeze (frost uplift)",
+            V_comp=max(0, 0.6 * D - A_f),
+            V_tens=max(0, A_f - 0.6 * D),
+        ))
 
     return cases
 

@@ -28,17 +28,23 @@ with col1:
     above_grade = st.number_input(
         "Above-grade height (ft)",
         min_value=0.0, max_value=30.0, step=0.25, format="%.2f",
-        key="above_grade",
+        value=float(st.session_state.get("above_grade", 4.0) or 4.0),
         help="Height of lateral load application above ground surface.",
     )
+    if above_grade is None:
+        above_grade = 4.0
+    st.session_state["above_grade"] = above_grade
 
 with col2:
     K_factor = st.number_input(
         "Effective length factor K",
         min_value=0.5, max_value=4.0, step=0.1, format="%.1f",
-        key="K_factor",
+        value=float(st.session_state.get("K_factor", 2.1) or 2.1),
         help="2.1 = cantilever with partial fixity (typical for piles). 2.0 = ideal cantilever.",
     )
+    if K_factor is None:
+        K_factor = 2.1
+    st.session_state["K_factor"] = K_factor
 
 # Compute depth of fixity from top soil layer
 D_f = 5.0  # default

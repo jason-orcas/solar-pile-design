@@ -243,9 +243,12 @@ with svc_c3:
     defl_limit = st.number_input(
         "Deflection limit (in)",
         min_value=0.05, max_value=5.0, step=0.05, format="%.2f",
-        key="service_defl_limit",
+        value=float(st.session_state.get("service_defl_limit", 0.50) or 0.50),
         help="Maximum allowable ground-line deflection under service loads.",
     )
+    if defl_limit is None:
+        defl_limit = 0.50
+    st.session_state["service_defl_limit"] = defl_limit
 
 if st.button("Check Service Deflection", key="btn_svc_defl"):
     _svc_H = svc_H if svc_H is not None else 0.0

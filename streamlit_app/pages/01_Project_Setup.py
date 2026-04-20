@@ -222,6 +222,7 @@ SAVEABLE_KEYS = [
     "dead_load", "live_load", "snow_load",
     "wind_down", "wind_up", "wind_lateral", "wind_moment", "lever_arm",
     "seismic_lateral", "seismic_vertical", "seismic_moment",
+    "adfreeze_uplift",
     "design_method", "axial_method", "FS_compression", "FS_tension", "cyclic_loading",
     "group_n_rows", "group_n_cols", "group_spacing",
     "group_x_spacing", "group_y_spacing",

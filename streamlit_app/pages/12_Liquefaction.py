@@ -32,22 +32,31 @@ with col1:
     a_max = st.number_input(
         f"PGA, a_max (g){sds_hint}",
         min_value=0.0, max_value=2.0, step=0.01, format="%.3f",
-        key="liq_a_max",
+        value=float(st.session_state.get("liq_a_max", 0.2) or 0.2),
     )
+    if a_max is None:
+        a_max = 0.2
+    st.session_state["liq_a_max"] = a_max
 
 with col2:
     M_w = st.number_input(
         "Earthquake magnitude (M_w)",
         min_value=4.0, max_value=9.5, step=0.1, format="%.1f",
-        key="liq_Mw",
+        value=float(st.session_state.get("liq_Mw", 7.5) or 7.5),
     )
+    if M_w is None:
+        M_w = 7.5
+    st.session_state["liq_Mw"] = M_w
 
 with col3:
     FC = st.number_input(
         "Default fines content (%)",
         min_value=0.0, max_value=100.0, step=5.0, format="%.0f",
-        key="liq_fines_content",
+        value=float(st.session_state.get("liq_fines_content", 15.0) or 15.0),
     )
+    if FC is None:
+        FC = 15.0
+    st.session_state["liq_fines_content"] = FC
 
 max_depth = st.slider("Maximum screening depth (ft)", 10, 100, 65)
 

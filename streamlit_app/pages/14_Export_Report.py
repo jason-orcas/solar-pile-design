@@ -141,6 +141,7 @@ def build_report_data() -> ReportData:
         seismic_lateral=_ss("seismic_lateral", 0.0),
         seismic_moment=_ss("seismic_moment", 0.0),
         lever_arm=_ss("lever_arm", 4.0),
+        adfreeze_uplift=_ss("adfreeze_uplift", 0.0),
     )
 
     return ReportData(
